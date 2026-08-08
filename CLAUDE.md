@@ -47,10 +47,11 @@ repo can flip public. Going forward:
   persistence (currently `localStorage`) is isolated behind a thin `lib/profile-store.ts` adapter
   so the engine never imports browser or framework APIs.
 
-## Build commands (intended — app not yet scaffolded)
+## Build commands
 
-Declared in `package.json` but dependencies are not yet installed / Next.js project not yet
-scaffolded:
+App scaffolded (`scaffold-nextjs-app` story) — Next.js 15 + TypeScript + Tailwind + shadcn/ui,
+`app/` and `components/` live at the repo root alongside `lib/`, `data/`, `docs/`:
+- `npm install` → installs deps (run once, or after pulling a `package.json` change)
 - `npm run dev` → `next dev`
 - `npm run build` → `next build`
 - `npm run test` → `vitest run`

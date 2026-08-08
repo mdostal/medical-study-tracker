@@ -4,6 +4,11 @@ node_modules/
 out/
 dist/
 *.tsbuildinfo
+next-env.d.ts
+coverage/
+
+# vercel
+.vercel
 
 # env / secrets
 .env

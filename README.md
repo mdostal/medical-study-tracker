@@ -34,14 +34,20 @@ You tune the weights; it re-ranks. See `docs/SCORING.md`.
   backend; every visitor's profile and status state persist in their own browser via `localStorage`,
   with a shareable link that encodes the profile for sharing a specific ranking view.
 
-## Stack (intended — for the hive)
+## Stack
 
-Next.js 15 (App Router) · TypeScript · Tailwind · shadcn/ui · Supabase (Postgres + RLS) · deployed on
-the owner's existing infra. Mirror the conventions in the `personal-drone` / drone-hub repos.
+Next.js 15 (App Router) · TypeScript · Tailwind · shadcn/ui. No accounts, no backend, no database —
+every visitor's profile and status state persist locally in their own browser via `localStorage`
+(see `.pHive/epics/public-launch/docs/design-discussion.md` §9).
 
 ## Layout
 
 ```
+app/
+  layout.tsx, page.tsx    Next.js App Router entry points (Server Components by default)
+components/
+  ui/                     shadcn/ui components (Table, Card, Button, ...)
+  *.tsx                   app-specific components ("use client" where interactive)
 docs/
   REQUIREMENTS.md        product spec + data model + UX
   SCORING.md             the weighting/scoring algorithm (formulas) — the heart
@@ -53,7 +59,9 @@ data/
   friend-childcare-map.json   owner's friend cities → childcare likelihood → nearby study hubs
 lib/
   types.ts               the schema (Study, Network, ScoreInputs, ScoredStudy)
-  scoring.ts             reference implementation of the SCORING.md algorithm
+  scoring.ts             reference implementation of the SCORING.md algorithm — framework-free,
+                          imports unchanged into both Server and Client Components
+  utils.ts                shadcn/ui's `cn()` class-merging helper
 prototype/
   net-value-model.html   working single-file prototype (ranks seed data live, tunable knobs)
 ```
