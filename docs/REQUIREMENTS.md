@@ -55,12 +55,27 @@ Rank by **net-of-everything and speed-to-cash**, never by the headline "up to $"
   the live-DOM puller.
 - **Auto-refresh** the seed from each network (the pullers in DATA-SOURCES) on a schedule.
 
-## Phase 2 — public tool (gated on his cash need being met)
+## Phase 2 — productize as a Pantheon plugin (public)
 
-- Multi-user (Supabase auth + RLS). Each user sets their own profile (BMI, sex, base city, friend map)
-  and the same engine ranks for them.
-- Public network directory + "is this study worth it for me" calculator.
-- **Not shared publicly until the owner says go.** Build private-first.
+The end state: this is **not a standalone app — it's a true plugin for Pantheon** (the owner's
+platform), a sibling to the **gig-tracker** plugin. Same plugin contract, shared auth, shared
+multi-tenant shell. Build Phase 1 so the engine (`lib/scoring.ts`) and data layer are cleanly
+separable from any app chrome, so wrapping it as a Pantheon plugin is a lift-and-shift, not a rewrite.
+
+- **Pantheon-plugin architecture** — conform to Pantheon's plugin interface (auth, tenancy, billing,
+  UI shell) rather than owning those. The scoring engine + data schema are the plugin's payload.
+- **Pre-launch sign-up capture (do this EARLY, before full release):** a landing page + waitlist that
+  collects emails now, so there's an audience the day it opens. Public release can come **before** the
+  owner is in a study — the gate is "sign-ups flowing," not "cash in hand." Capture first, monetize
+  next.
+- **Multi-user** (Supabase auth + RLS): each user sets their own profile (BMI, sex, base city, friend
+  map) and the same engine ranks for them. The friend-childcare + payout-timing model is the moat —
+  no other "find a study" site does net-value ranking.
+- **Monetization** — TBD via Pantheon (freemium / plugin subscription). "Let others use it just as we
+  do." Sequenced: waitlist → open beta → paid tier.
+
+Roadmap sequence: **private (owner) → pre-launch waitlist → public beta as a Pantheon plugin → paid.**
+Ties to the Pantheon time-flywheel + the small-contract automation model.
 
 ## Explicit non-goals
 
