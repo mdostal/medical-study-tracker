@@ -1,0 +1,17 @@
+metrics:
+  enabled: true
+
+execution:
+  default_methodology: classic
+
+developer:
+  pr_style: single-commit
+  commit_granularity: medium
+  review_depth: standard
+  notes: null
+
+planning:
+  collaborative_review: true
+
+meta_team:
+  github_forwarding: false
