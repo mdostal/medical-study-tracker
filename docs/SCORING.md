@@ -57,17 +57,16 @@ inpatient_nights = sum(stays)
 trips            = stays.length + visits           // each stay and each in-person visit is a journey
 ```
 
-**Childcare cost** — per stay, decide who covers it:
+**Childcare cost** — ⚠ **NEVER guessed.** The tool must not infer who can watch his kid in which
+city, and ranking must not depend on it. Default `childcare_cost = 0` — the user weighs coverage per
+study himself. Only if the user explicitly turns on `model_childcare` does it apply a flat estimate:
 ```
-for each stay of n nights:
-   if city has a childcare-friend (friend_map[city].can_take_riley === true)  -> cost 0   (friend)
-   else if n <= friend_threshold_nights                                          -> cost 0   (short, a friend flies/covers)
-   else                                                                          -> cost n * nanny_rate   (nanny house-sit)
-childcare_cost = sum of the above
+childcare_cost = model_childcare
+  ? sum(n * nanny_rate for each stay of n nights where n > friend_threshold_nights)
+  : 0
 ```
-Rationale (owner's own words): friends *outside Austin, especially those with kids,* are more likely
-to take Riley; short stays a friend can cover; long stays are fundable by a hired nanny house-sit
-**if the study makes it make sense** — which is exactly what net + velocity decide.
+No per-city / friend-map assumptions of any kind. (An earlier version invented per-city "likely/maybe"
+coverage and ranked on it — that was wrong and is removed. See data/friend-childcare-map.json.)
 
 **Travel cost**
 ```

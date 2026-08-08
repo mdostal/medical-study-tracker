@@ -19,16 +19,11 @@ export function isEligible(s: Study, p: Profile): { ok: boolean; reason?: string
   if (s.bmi_max != null && p.bmi > s.bmi_max) return { ok: false, reason: `BMI > ${s.bmi_max}` };
   if (s.min_weight_lb != null && p.weight_lb < s.min_weight_lb) return { ok: false, reason: `weight < ${s.min_weight_lb}` };
   if (p.age != null && p.age > s.age_max) return { ok: false, reason: `age > ${s.age_max}` };
-  // high_cholesterol_required: he HAS it, so it's a qualifier, not a block.
+  if (s.special_pop === "high_cholesterol_required") return { ok: false, reason: "requires documented high cholesterol (he doesn't have it)" };
   return { ok: true };
 }
 
 // ---- childcare / travel helpers --------------------------------------------
-function friendCoversHub(hub: string, fm: FriendMap): boolean {
-  return fm.friend_metros.some(
-    (m) => m.covers_hubs.includes(hub) && m.can_take_riley !== "no"
-  );
-}
 function drivable(hub: string, base: string, fm: FriendMap): boolean {
   return (fm.base_drive_hubs[base] || []).includes(hub);
 }
@@ -62,20 +57,15 @@ export function scoreOne(
   if (s.travel_stipend_per_visit) travel_cost -= s.travel_stipend_per_visit * visits;
   if (travel_cost < 0) travel_cost = 0;
 
-  // childcare: friend-city covers any length; else short stays free; else nanny
-  const hubHasFriend = friendCoversHub(s.hub, fm);
+  // childcare: NEVER guessed from any friend map — the user decides coverage per study.
+  // Not modeled by default. If a.model_childcare is on, apply a flat nanny estimate for
+  // stays longer than the threshold (no per-city friend assumptions of any kind).
   let childcare_cost = 0;
   let nannyNights = 0;
-  let usedFriend = false, usedShort = false;
-  for (const n of stays) {
-    if (hubHasFriend) { usedFriend = true; continue; }          // friend covers
-    if (n <= a.friend_threshold_nights) { usedShort = true; continue; } // short, coverable
-    nannyNights += n; childcare_cost += n * a.nanny_rate;       // nanny house-sit
+  if (a.model_childcare) {
+    for (const n of stays) if (n > a.friend_threshold_nights) { nannyNights += n; childcare_cost += n * a.nanny_rate; }
   }
-  const childcare_by: ScoredStudy["childcare_by"] =
-    nannyNights > 0 && (usedFriend || usedShort) ? "mixed"
-    : nannyNights > 0 ? "nanny"
-    : usedFriend ? "friend" : "short-friend";
+  const childcare_by: ScoredStudy["childcare_by"] = nannyNights > 0 ? "nanny" : "user-decides";
 
   // payout timing
   let settle_days = s.payout.settle_days ?? 0;
@@ -101,10 +91,12 @@ export function scoreOne(
   const maxStay = Math.max(...stays);
   let feasibility: Feasibility;
   if (!elig.ok) feasibility = "BLOCKED";
-  else if (hubHasFriend || maxStay <= a.friend_threshold_nights) feasibility = "EASY";
-  else if (maxStay <= a.max_away_nights && net_cash > childcare_cost) feasibility = "MODERATE";
-  else if (maxStay <= a.max_away_nights) feasibility = "HARD";
-  else feasibility = "BLOCKED"; // single stay longer than he can be away
+  else if (maxStay <= a.friend_threshold_nights) feasibility = "EASY";   // short = easy to cover
+  else if (maxStay <= 9) feasibility = "MODERATE";
+  else if (maxStay <= a.max_away_nights) feasibility = "HARD";           // long single stay
+  else feasibility = "BLOCKED";                                          // longer than he can be away
+  // NOTE: feasibility reflects stay LENGTH only. It does NOT judge whether he has childcare in a city —
+  // that's the user's call, never inferred.
 
   // per-study flags
   if (s.bmi_min == null && s.bmi_max == null) flags.push("confirm BMI on call");

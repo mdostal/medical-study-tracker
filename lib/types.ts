@@ -76,6 +76,7 @@ export interface Assumptions {
   drive_cost: number;
   friend_threshold_nights: number;
   max_away_nights: number;
+  model_childcare: boolean; // OFF by default — childcare is the user's call, never guessed from friends
   w_net: number;
   w_velocity: number;
   w_downtime: number;
@@ -90,7 +91,7 @@ export interface ScoredStudy extends Study {
   drivable: boolean;
   travel_cost: number;
   childcare_cost: number;
-  childcare_by: "friend" | "short-friend" | "nanny" | "mixed";
+  childcare_by: "nanny" | "user-decides";
   net_cash: number;
   settle_days: number;
   payout_unconfirmed: boolean;
@@ -110,6 +111,7 @@ export const DEFAULT_ASSUMPTIONS: Assumptions = {
   drive_cost: 70,
   friend_threshold_nights: 3,
   max_away_nights: 31,
+  model_childcare: false,
   w_net: 0.35,
   w_velocity: 0.45,
   w_downtime: 0.20,
