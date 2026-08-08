@@ -115,10 +115,36 @@ async function newPage(browser) {
   return browser.newPage({ userAgent: USER_AGENT });
 }
 
+/** De-dupes a network's freshly-pulled studies by `id`, keeping the FIRST occurrence encountered
+ * (first-write-wins) and dropping later ones. This is a safety net applied to every puller's
+ * output regardless of root-cause fixes upstream, so a future DOM change on any network's site
+ * can't silently reintroduce duplicate rows into data/studies.seed.json. Returns the deduped list
+ * plus how many rows were dropped, so callers can log/warn when it actually did something. */
+function dedupeById(studies) {
+  const seen = new Set();
+  const deduped = [];
+  for (const s of studies) {
+    if (seen.has(s.id)) continue;
+    seen.add(s.id);
+    deduped.push(s);
+  }
+  return { deduped, droppedCount: studies.length - deduped.length };
+}
+
 // -------------------- ICON (confirmed selector per docs/DATA-SOURCES.md) --------------------
 // Method: navigate All-Clinical-Research-Studies?nocache=<ts>#sort=compensation-high, read each
-// .studies-card__inner card. Verified live 2026-08-08: 57 cards across SLC / San Antonio / Lenexa.
-
+// .studies-card__inner card. Verified live 2026-08-08: 57 raw .studies-card__inner DOM matches
+// across SLC / San Antonio / Lenexa, but ONLY 18 are genuinely distinct studies (root cause of
+// this story's duplicate-row bug, confirmed live 2026-08-08):
+//   1. The page renders each hub's cards a second (or third) time inside Slick carousel widgets
+//      (".slick-slider") used for "similar studies" browsing. Slick clones a handful of slides
+//      per carousel (marked with a "slick-cloned" ancestor class + aria-hidden="true") to fake an
+//      infinite loop — those clones are excluded below since they're not even real content, just
+//      DOM padding for the animation.
+//   2. Even after dropping clones, the SAME study still legitimately appears as an un-cloned slide
+//      in more than one carousel section on the page (e.g. shown once in a hub's own carousel and
+//      again in a cross-hub "similar" carousel) — that's real markup, not a scraper artifact, so it
+//      can only be handled by deduping on the card's own id, which is done below.
 const ICON_HUBS = { slc: "SLC", sanantonio: "SA", lenexa: "LEN" };
 
 async function pullICON(browser) {
@@ -129,26 +155,29 @@ async function pullICON(browser) {
     await page.waitForSelector(".studies-card__inner", { timeout: 20_000 });
 
     const cards = await page.$$eval(".studies-card__inner", (els) =>
-      els.map((el) => {
-        const q = (sel) => el.querySelector(sel)?.textContent?.trim() ?? "";
-        const link = el.querySelector(".studies-card__inner-link");
-        const applyLink = el.querySelector(".studies-card__controls a");
-        const smokerIconHref =
-          el.querySelector(".studies-card__smoker use")?.getAttribute("xlink:href") ?? "";
-        return {
-          href: link?.getAttribute("href") ?? "",
-          applyHref: applyLink?.getAttribute("href") ?? "",
-          id: q(".studies-card__number-inner"),
-          status: q(".studies-card__status-text"),
-          title: q(".studies-card__title"),
-          price: q(".studies-card__price"),
-          location: q(".studies-card__location-text"),
-          details: q(".studies-card__details"),
-          sex: q(".studies-card__sex-text"),
-          age: q(".studies-card__age"),
-          smokerIconHref,
-        };
-      })
+      els
+        // Drop Slick's inert clone slides (cause #1 above) before reading any content.
+        .filter((el) => !el.closest(".slick-cloned"))
+        .map((el) => {
+          const q = (sel) => el.querySelector(sel)?.textContent?.trim() ?? "";
+          const link = el.querySelector(".studies-card__inner-link");
+          const applyLink = el.querySelector(".studies-card__controls a");
+          const smokerIconHref =
+            el.querySelector(".studies-card__smoker use")?.getAttribute("xlink:href") ?? "";
+          return {
+            href: link?.getAttribute("href") ?? "",
+            applyHref: applyLink?.getAttribute("href") ?? "",
+            id: q(".studies-card__number-inner"),
+            status: q(".studies-card__status-text"),
+            title: q(".studies-card__title"),
+            price: q(".studies-card__price"),
+            location: q(".studies-card__location-text"),
+            details: q(".studies-card__details"),
+            sex: q(".studies-card__sex-text"),
+            age: q(".studies-card__age"),
+            smokerIconHref,
+          };
+        })
     );
 
     const studies = cards
@@ -192,7 +221,14 @@ async function pullICON(browser) {
         };
       });
 
-    return studies;
+    // Cause #2 above (same study legitimately rendered in >1 carousel section): dedupe by id,
+    // first-write-wins. DOM order isn't meaningful here since every duplicate observed live is
+    // byte-identical content, so "which copy wins" doesn't change the result.
+    const { deduped, droppedCount } = dedupeById(studies);
+    if (droppedCount > 0) {
+      log(`ICON: dropped ${droppedCount} duplicate-id card(s) (same study rendered in multiple carousel sections)`);
+    }
+    return deduped;
   } finally {
     await page.close();
   }
@@ -494,9 +530,17 @@ async function main() {
       if (!fresh || fresh.length === 0) {
         throw new Error("pull returned zero studies (selector may not match current DOM)");
       }
-      finalStudies.push(...fresh);
-      summary.refreshed[network] = fresh.length;
-      log(`OK    ${network}: refreshed ${fresh.length} studies`);
+      // Safety net regardless of each puller's own dedup logic: no network's output should ever
+      // reach the written file with a repeated id (see dedupeById's doc comment above).
+      const { deduped, droppedCount } = dedupeById(fresh);
+      if (droppedCount > 0) {
+        warnAnnotation(
+          `${network}: puller returned ${fresh.length} rows with ${droppedCount} duplicate id(s) — deduped to ${deduped.length} before writing.`
+        );
+      }
+      finalStudies.push(...deduped);
+      summary.refreshed[network] = deduped.length;
+      log(`OK    ${network}: refreshed ${deduped.length} studies`);
     } catch (err) {
       const prior = priorByNetwork.get(network) ?? [];
       finalStudies.push(...prior);
