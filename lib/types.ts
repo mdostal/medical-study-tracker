@@ -45,6 +45,13 @@ export interface Study {
   phone?: string;
   verified?: string;
   notes?: string;
+  // True only for a study the visitor added themselves via "add study by
+  // URL" (story: add-study-by-url) — never set on seed data. Drives the
+  // "unverified/user-added" visual distinction in the ranked table (that
+  // story's AC4) and lets lib/profile-store.ts's user-studies list be told
+  // apart from data/studies.seed.json's rows without a separate array
+  // living in every consumer.
+  user_added?: boolean;
 }
 
 export interface Profile {

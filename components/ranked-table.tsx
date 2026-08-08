@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import type { ScoredStudy } from "@/lib/types";
 import { isEligible } from "@/lib/scoring";
 import { fmtGross, fmtPerDay, fmtPerMonth, fmtUSD } from "@/lib/format";
@@ -12,14 +13,45 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusPill } from "@/components/status-pill";
+import { ColumnConfigMenu } from "@/components/column-config";
+import {
+  ALL_COLUMNS,
+  DEFAULT_COLUMN_CONFIG,
+  loadColumnConfig,
+  saveColumnConfig,
+  type ColumnConfig,
+  type ColumnId,
+} from "@/lib/column-config-store";
+import { STATUS_CHANGE_EVENT, loadStatusMap, type StudyStatus } from "@/lib/local-status-store";
+// Generic per-column sort + combinable filters (this story) — the pure
+// logic lives in lib/table-sort-filter.ts (framework-free, unit-tested via
+// a plain relative import in lib/__tests__/) rather than inline here, so it
+// stays testable without rendering React / needing a "@/..." alias resolved
+// in the test runner.
+import {
+  DEFAULT_FILTERS,
+  filterAndSort,
+  isDefaultFilters,
+  isSortableColumn,
+  matchesFilters,
+  type TableFilters,
+  type TableSort,
+} from "@/lib/table-sort-filter";
 import { cn } from "@/lib/utils";
-import type { Profile, SortKey } from "@/lib/types";
+import type { Feasibility, Profile, SortKey } from "@/lib/types";
 
 // Canonical definition lives in lib/types.ts (shared with lib/profile-store.ts
 // and lib/share-link.ts for local-persistence-share-links); re-exported here
 // so existing "@/components/ranked-table" imports keep working unchanged.
 export type { SortKey };
+export type { TableFilters, TableSort };
 
+// The four SCORING.md-listed quick sorts, still offered as shortcut buttons
+// in the Profile panel (components/profile-panel.tsx) and still the thing
+// that's persisted/shareable via lib/profile-store.ts + lib/share-link.ts —
+// unchanged by this story. What's new is the table's own per-column
+// click-to-sort below (lib/table-sort-filter.ts), which is local, in-table
+// UI state layered on top, not a replacement of this.
 export const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "score", label: "Score" },
   { key: "net_cash", label: "Net kept" },
@@ -68,6 +100,18 @@ function FlagBadge({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Story add-study-by-url AC4: a user-added study must be "visually distinct
+// from the seed data so it's not confused with verified network listings" —
+// this badge is the only thing that distinguishes an s.user_added row;
+// everything else renders identically to a seed-data row.
+function UserAddedBadge() {
+  return (
+    <span className="inline-block rounded border border-sky-600/40 bg-sky-500/10 px-1.5 py-0.5 font-mono text-[0.6rem] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-400">
+      unverified · you added this
+    </span>
+  );
+}
+
 function TripBadge({ drivable }: { drivable: boolean }) {
   return (
     <span
@@ -90,6 +134,195 @@ function reasonFor(s: ScoredStudy, profile: Profile, maxAwayNights: number): str
   return "excluded";
 }
 
+// --- Column render registry --------------------------------------------
+//
+// One entry per ColumnId (lib/column-config-store.ts) describing how to
+// render its header alignment and its cell content — drives the dynamic
+// header/row rendering below so column order/visibility (ColumnConfig) is a
+// single source of truth instead of two hand-kept lists of JSX.
+
+type ColumnRenderer = {
+  align?: "right";
+  render: (s: ScoredStudy, i: number) => React.ReactNode;
+};
+
+const COLUMN_RENDER: Record<ColumnId, ColumnRenderer> = {
+  rank: {
+    align: "right",
+    render: (_s, i) => i + 1,
+  },
+  study: {
+    render: (s) => (
+      <>
+        <a
+          href={s.source_url ?? s.apply_url ?? "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-accent-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
+        >
+          {s.id}
+        </a>
+        <div className="font-mono text-[0.62rem] text-muted-foreground">
+          {s.network} · {s.city}, {s.state}
+          {s.hub ? ` · ${s.hub}` : ""}
+        </div>
+        {s.user_added && (
+          <div className="mt-1">
+            <UserAddedBadge />
+          </div>
+        )}
+      </>
+    ),
+  },
+  gross: {
+    align: "right",
+    render: (s) => fmtGross(s.pay_gross, s.currency),
+  },
+  payout: {
+    render: (s) => (
+      <>
+        <div>
+          {s.payout.type} · {s.settle_days}d
+        </div>
+        {s.payout_unconfirmed && <FlagBadge>confirm on call</FlagBadge>}
+      </>
+    ),
+  },
+  nights: {
+    align: "right",
+    render: (s) => (
+      <>
+        {s.nights_estimated ? "~" : ""}
+        {s.inpatient_nights}
+      </>
+    ),
+  },
+  trips: {
+    align: "right",
+    render: (s) => (
+      <>
+        <span className="font-mono tabular-nums">{s.trips}</span> <TripBadge drivable={s.drivable} />
+      </>
+    ),
+  },
+  travel: {
+    align: "right",
+    render: (s) => fmtUSD(s.travel_cost),
+  },
+  childcare: {
+    align: "right",
+    render: (s) =>
+      s.childcare_cost > 0 ? (
+        <>
+          {fmtUSD(s.childcare_cost)} <span className="text-muted-foreground">· nanny</span>
+        </>
+      ) : (
+        <span className="text-muted-foreground">you decide</span>
+      ),
+  },
+  net_cash: {
+    align: "right",
+    render: (s) => (
+      <span className="font-bold text-emerald-700 dark:text-emerald-400">{fmtUSD(s.net_cash)}</span>
+    ),
+  },
+  velocity: {
+    align: "right",
+    render: (s) => fmtPerMonth(s.cash_velocity),
+  },
+  downtime: {
+    align: "right",
+    render: (s) => fmtPerDay(s.downtime_rate),
+  },
+  feasibility: {
+    render: (s) => <FeasibilityBadge feasibility={s.feasibility} />,
+  },
+  flags: {
+    render: (s) => (
+      <div className="flex max-w-[220px] flex-wrap gap-1">
+        {s.flags
+          .filter((f) => !f.includes("payout timing"))
+          .map((f) => (
+            <FlagBadge key={f}>{f}</FlagBadge>
+          ))}
+      </div>
+    ),
+  },
+  apply: {
+    render: (s) =>
+      s.apply_url ?? s.source_url ? (
+        <a
+          href={s.apply_url ?? s.source_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded border border-emerald-600/40 px-1.5 py-0.5 font-mono text-[0.62rem] text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
+        >
+          {s.apply_url ? "apply" : "source"}&nbsp;&rarr;
+        </a>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
+  },
+  phone: {
+    render: (s) => s.phone ?? "—",
+  },
+  status: {
+    render: (s) => <StatusPill studyId={s.id} />,
+  },
+};
+
+const LABEL_BY_ID: Record<ColumnId, string> = Object.fromEntries(
+  ALL_COLUMNS.map((c) => [c.id, c.label]),
+) as Record<ColumnId, string>;
+
+function uniqueSorted(values: (string | undefined)[]): string[] {
+  return Array.from(new Set(values.filter((v): v is string => Boolean(v)))).sort();
+}
+
+const FEASIBILITY_FILTER_OPTIONS: Feasibility[] = ["EASY", "MODERATE", "HARD", "BLOCKED"];
+const STATUS_FILTER_OPTIONS: StudyStatus[] = [
+  "not-started",
+  "called",
+  "screening",
+  "enrolled",
+  "done",
+  "not-eligible",
+];
+
+function FilterSelect<T extends string>({
+  label,
+  value,
+  options,
+  labelFor,
+  onChange,
+}: {
+  label: string;
+  value: T | "all";
+  options: readonly T[];
+  labelFor?: (v: T) => string;
+  onChange: (v: T | "all") => void;
+}) {
+  return (
+    <label className="flex flex-col gap-0.5">
+      <span className="font-mono text-[0.58rem] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as T | "all")}
+        className="rounded-md border bg-background px-1.5 py-1 font-mono text-[0.68rem] text-foreground"
+      >
+        <option value="all">all</option>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {labelFor ? labelFor(opt) : opt}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function RankedTable({
   eligible,
   blocked,
@@ -101,8 +334,137 @@ export function RankedTable({
   profile: Profile;
   maxAwayNights: number;
 }) {
+  // Column order/visibility — the one piece of this story's state that
+  // persists across reload, via lib/column-config-store.ts (the same
+  // adapter pattern as lib/profile-store.ts). SSR/first paint renders the
+  // built-in default so markup matches between server and client (no
+  // hydration mismatch); the real saved config (if any) is restored client-
+  // side on mount, same restore-then-persist pattern as app/page.tsx.
+  const [columnConfig, setColumnConfig] = useState<ColumnConfig>(DEFAULT_COLUMN_CONFIG);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Filters + generic column sort are local, in-memory UI state — not
+  // persisted, so the table always starts at the existing default
+  // experience (all rows, composite-score order) on a fresh load per this
+  // story's acceptance criteria.
+  const [filters, setFilters] = useState<TableFilters>(DEFAULT_FILTERS);
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
+
+  // Per-study status (components/status-pill.tsx), needed here only to
+  // support the Status filter/sort — the pill itself still owns its own
+  // read/write via lib/local-status-store.ts. Snapshotted on mount and
+  // refreshed whenever a pill fires STATUS_CHANGE_EVENT.
+  const [statusMap, setStatusMap] = useState<Record<string, StudyStatus>>({});
+
+  useEffect(() => {
+    setColumnConfig(loadColumnConfig());
+    setStatusMap(loadStatusMap());
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveColumnConfig(columnConfig);
+  }, [hydrated, columnConfig]);
+
+  useEffect(() => {
+    function refresh() {
+      setStatusMap(loadStatusMap());
+    }
+    window.addEventListener(STATUS_CHANGE_EVENT, refresh);
+    return () => window.removeEventListener(STATUS_CHANGE_EVENT, refresh);
+  }, []);
+
+  const hubOptions = useMemo(
+    () => uniqueSorted([...eligible, ...blocked].map((s) => s.hub)),
+    [eligible, blocked],
+  );
+  const networkOptions = useMemo(
+    () => uniqueSorted([...eligible, ...blocked].map((s) => s.network)),
+    [eligible, blocked],
+  );
+
+  // "Eligibility" filters which whole section(s) are populated — the
+  // eligible/blocked split (docs/REQUIREMENTS.md must-have #5, "never bury
+  // the gate") stays intact either way; this only lets a visitor narrow to
+  // one side of the gate instead of always seeing both.
+  const showEligibleSection = filters.eligibility !== "not-eligible";
+  const showBlockedSection = filters.eligibility !== "eligible";
+
+  const filteredEligible = useMemo(
+    () => (showEligibleSection ? filterAndSort(eligible, filters, statusMap, tableSort) : []),
+    [eligible, filters, statusMap, tableSort, showEligibleSection],
+  );
+  const filteredBlocked = useMemo(
+    () => (showBlockedSection ? blocked.filter((s) => matchesFilters(s, filters, statusMap)) : []),
+    [blocked, filters, statusMap, showBlockedSection],
+  );
+
+  const visibleColumns = useMemo(() => columnConfig.filter((c) => c.visible), [columnConfig]);
+
+  function handleHeaderClick(id: ColumnId) {
+    if (!isSortableColumn(id)) return;
+    setTableSort((current) => {
+      if (!current || current.column !== id) return { column: id, dir: "asc" };
+      if (current.dir === "asc") return { column: id, dir: "desc" };
+      return null; // third click on the same column clears back to the default order
+    });
+  }
+
+  const filtersActive = !isDefaultFilters(filters);
+
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border bg-card p-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <FilterSelect
+            label="Hub"
+            value={filters.hub}
+            options={hubOptions}
+            onChange={(v) => setFilters((f) => ({ ...f, hub: v }))}
+          />
+          <FilterSelect
+            label="Network"
+            value={filters.network}
+            options={networkOptions}
+            onChange={(v) => setFilters((f) => ({ ...f, network: v }))}
+          />
+          <FilterSelect
+            label="Feasibility"
+            value={filters.feasibility}
+            options={FEASIBILITY_FILTER_OPTIONS}
+            onChange={(v) => setFilters((f) => ({ ...f, feasibility: v }))}
+          />
+          <FilterSelect
+            label="Status"
+            value={filters.status}
+            options={STATUS_FILTER_OPTIONS}
+            onChange={(v) => setFilters((f) => ({ ...f, status: v }))}
+          />
+          <FilterSelect
+            label="Eligibility"
+            value={filters.eligibility}
+            options={["eligible", "not-eligible"] as const}
+            labelFor={(v) => (v === "eligible" ? "eligible only" : "not eligible only")}
+            onChange={(v) => setFilters((f) => ({ ...f, eligibility: v }))}
+          />
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={() => setFilters(DEFAULT_FILTERS)}
+              className="self-end pb-1.5 font-mono text-[0.62rem] text-muted-foreground underline decoration-dotted hover:text-foreground"
+            >
+              clear filters
+            </button>
+          )}
+        </div>
+        <ColumnConfigMenu
+          config={columnConfig}
+          onChange={setColumnConfig}
+          onReset={() => setColumnConfig(DEFAULT_COLUMN_CONFIG)}
+        />
+      </div>
+
       <section>
         <h2 className="mb-2 font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           You qualify — ranked by net value
@@ -111,158 +473,70 @@ export function RankedTable({
           <Table className="min-w-[1500px] text-[0.78rem]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  #
-                </TableHead>
-                <TableHead className="font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Study
-                </TableHead>
-                <TableHead className="text-right font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Gross
-                </TableHead>
-                <TableHead className="font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Payout
-                </TableHead>
-                <TableHead className="text-right font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Nights
-                </TableHead>
-                <TableHead className="text-right font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Trips
-                </TableHead>
-                <TableHead className="text-right font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Travel
-                </TableHead>
-                <TableHead className="text-right font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Childcare
-                </TableHead>
-                <TableHead className="text-right font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Net kept
-                </TableHead>
-                <TableHead className="text-right font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Velocity
-                </TableHead>
-                <TableHead className="text-right font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Downtime
-                </TableHead>
-                <TableHead className="font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Feasibility
-                </TableHead>
-                <TableHead className="font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground whitespace-normal">
-                  Flags
-                </TableHead>
-                <TableHead className="font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Apply
-                </TableHead>
-                <TableHead className="font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Phone
-                </TableHead>
-                <TableHead className="font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-                  Status
-                </TableHead>
+                {visibleColumns.map((col) => {
+                  const sortable = isSortableColumn(col.id);
+                  const align = COLUMN_RENDER[col.id].align;
+                  const active = tableSort?.column === col.id;
+                  return (
+                    <TableHead
+                      key={col.id}
+                      className={cn(
+                        "font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground",
+                        align === "right" && "text-right",
+                        col.id === "flags" && "whitespace-normal",
+                      )}
+                    >
+                      {sortable ? (
+                        <button
+                          type="button"
+                          onClick={() => handleHeaderClick(col.id)}
+                          className={cn(
+                            "inline-flex items-center gap-0.5 hover:text-foreground",
+                            active && "text-foreground",
+                          )}
+                        >
+                          {LABEL_BY_ID[col.id]}
+                          {active && <span aria-hidden>{tableSort!.dir === "asc" ? "▲" : "▼"}</span>}
+                        </button>
+                      ) : (
+                        LABEL_BY_ID[col.id]
+                      )}
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {eligible.map((s, i) => (
+              {filteredEligible.map((s, i) => (
                 <TableRow
                   key={s.id}
-                  className={cn(i < 3 && "bg-emerald-500/[0.06] hover:bg-emerald-500/10")}
+                  className={cn(!tableSort && i < 3 && "bg-emerald-500/[0.06] hover:bg-emerald-500/10")}
                 >
-                  <TableCell className="font-mono tabular-nums text-muted-foreground">
-                    {i + 1}
-                  </TableCell>
-                  <TableCell>
-                    <a
-                      href={s.source_url ?? s.apply_url ?? "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-accent-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
-                    >
-                      {s.id}
-                    </a>
-                    <div className="font-mono text-[0.62rem] text-muted-foreground">
-                      {s.network} · {s.city}, {s.state}
-                      {s.hub ? ` · ${s.hub}` : ""}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {fmtGross(s.pay_gross, s.currency)}
-                  </TableCell>
-                  <TableCell className="font-mono text-[0.68rem]">
-                    <div>
-                      {s.payout.type} · {s.settle_days}d
-                    </div>
-                    {s.payout_unconfirmed && (
-                      <FlagBadge>confirm on call</FlagBadge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {s.nights_estimated ? "~" : ""}
-                    {s.inpatient_nights}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className="font-mono tabular-nums">{s.trips}</span>{" "}
-                    <TripBadge drivable={s.drivable} />
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {fmtUSD(s.travel_cost)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {s.childcare_cost > 0 ? (
-                      <>
-                        {fmtUSD(s.childcare_cost)}{" "}
-                        <span className="text-muted-foreground">· nanny</span>
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">you decide</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-mono font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
-                    {fmtUSD(s.net_cash)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {fmtPerMonth(s.cash_velocity)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {fmtPerDay(s.downtime_rate)}
-                  </TableCell>
-                  <TableCell>
-                    <FeasibilityBadge feasibility={s.feasibility} />
-                  </TableCell>
-                  <TableCell className="whitespace-normal">
-                    <div className="flex max-w-[220px] flex-wrap gap-1">
-                      {s.flags
-                        .filter((f) => !f.includes("payout timing"))
-                        .map((f) => (
-                          <FlagBadge key={f}>{f}</FlagBadge>
-                        ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {s.apply_url ?? s.source_url ? (
-                      <a
-                        href={s.apply_url ?? s.source_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded border border-emerald-600/40 px-1.5 py-0.5 font-mono text-[0.62rem] text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
+                  {visibleColumns.map((col) => {
+                    const align = COLUMN_RENDER[col.id].align;
+                    return (
+                      <TableCell
+                        key={col.id}
+                        className={cn(
+                          align === "right" && "text-right font-mono tabular-nums",
+                          col.id === "flags" && "whitespace-normal",
+                        )}
                       >
-                        {s.apply_url ? "apply" : "source"}&nbsp;&rarr;
-                      </a>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-mono text-[0.68rem] text-muted-foreground">
-                    {s.phone ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    <StatusPill studyId={s.id} />
-                  </TableCell>
+                        {COLUMN_RENDER[col.id].render(s, i)}
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))}
-              {eligible.length === 0 && (
+              {filteredEligible.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={16} className="py-6 text-center text-muted-foreground">
-                    No eligible studies for the current profile and assumptions.
+                  <TableCell
+                    colSpan={Math.max(visibleColumns.length, 1)}
+                    className="py-6 text-center text-muted-foreground"
+                  >
+                    {eligible.length === 0
+                      ? "No eligible studies for the current profile and assumptions."
+                      : "No studies match the current filters."}
                   </TableCell>
                 </TableRow>
               )}
@@ -294,7 +568,7 @@ export function RankedTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {blocked.map((s) => (
+              {filteredBlocked.map((s) => (
                 <TableRow key={s.id} className="opacity-60 hover:opacity-100">
                   <TableCell className="font-medium">
                     {s.source_url ?? s.apply_url ? (
@@ -312,6 +586,11 @@ export function RankedTable({
                     <div className="font-mono text-[0.62rem] text-muted-foreground">
                       {s.network}
                     </div>
+                    {s.user_added && (
+                      <div className="mt-1">
+                        <UserAddedBadge />
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-mono tabular-nums">
                     {fmtGross(s.pay_gross, s.currency)}
@@ -324,10 +603,12 @@ export function RankedTable({
                   </TableCell>
                 </TableRow>
               ))}
-              {blocked.length === 0 && (
+              {filteredBlocked.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
-                    Nothing excluded for the current profile.
+                    {blocked.length === 0
+                      ? "Nothing excluded for the current profile."
+                      : "No excluded studies match the current filters."}
                   </TableCell>
                 </TableRow>
               )}

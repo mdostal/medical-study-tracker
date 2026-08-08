@@ -30,6 +30,15 @@ export const STATUS_ORDER: StudyStatus[] = [
 
 export const DEFAULT_STATUS: StudyStatus = "not-started";
 
+// Same-tab notification name a DOM component (components/status-pill.tsx)
+// dispatches on `window` after a status change, so other components that
+// read this store outside of props (components/ranked-table.tsx's status
+// filter) can react to it. Defined here — the module that owns the "status"
+// concern — rather than duplicated as a string literal in each listener/
+// dispatcher. This file still touches no DOM API itself; it's a plain
+// string constant, same framework-free rule as everything else here.
+export const STATUS_CHANGE_EVENT = "mst:study-status-changed";
+
 const STORAGE_KEY = "mst.studyStatus.v1";
 
 function isStudyStatus(value: unknown): value is StudyStatus {

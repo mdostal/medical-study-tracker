@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_STATUS,
+  STATUS_CHANGE_EVENT,
   cycleStatus,
   getStoredStatus,
   setStoredStatus,
@@ -29,6 +30,10 @@ export function StatusPill({ studyId }: { studyId: string }) {
         setStatus((current) => {
           const next = cycleStatus(current);
           setStoredStatus(studyId, next);
+          // Notify anything reading this store outside of props — currently
+          // components/ranked-table.tsx's status filter, which snapshots
+          // the store on mount and otherwise wouldn't see this change.
+          window.dispatchEvent(new Event(STATUS_CHANGE_EVENT));
           return next;
         });
       }}
