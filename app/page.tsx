@@ -1,11 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { Assumptions, FriendMap, Profile, Study } from "@/lib/types";
-import { DEFAULT_ASSUMPTIONS } from "@/lib/types";
+import { useEffect, useMemo, useState } from "react";
+import type { Assumptions, FriendMap, Profile, SortKey, Study } from "@/lib/types";
+import { DEFAULT_ASSUMPTIONS, DEFAULT_SORT_KEY, sanitizePersistedState } from "@/lib/types";
 import { scoreAll } from "@/lib/scoring";
+import { loadPersistedState, savePersistedState } from "@/lib/profile-store";
+import { decodeShareState, SHARE_PARAM } from "@/lib/share-link";
 import { ProfilePanel } from "@/components/profile-panel";
-import { RankedTable, sortEligible, type SortKey } from "@/components/ranked-table";
+import { RankedTable, sortEligible } from "@/components/ranked-table";
+import { ShareButton } from "@/components/share-button";
+import { StackSuggesterPanel } from "@/components/stack-suggester-panel";
 import studiesSeed from "@/data/studies.seed.json";
 import friendChildcareMap from "@/data/friend-childcare-map.json";
 
@@ -45,7 +49,35 @@ const FRIEND_MAP: FriendMap = {
 
 export default function Home() {
   const [assumptions, setAssumptions] = useState<Assumptions>(DEFAULT_ASSUMPTIONS);
-  const [sortKey, setSortKey] = useState<SortKey>("score");
+  const [sortKey, setSortKey] = useState<SortKey>(DEFAULT_SORT_KEY);
+
+  // Restore-once-on-mount: a share link's `?s=` param wins over localStorage
+  // (an explicit link someone sent you should reproduce what they saw, not
+  // silently merge with whatever you already had saved), and localStorage
+  // wins over the built-in defaults. Runs client-side only (window/
+  // localStorage aren't available during SSR) — initial render uses the
+  // defaults above, then this effect restores the real state on first paint
+  // in the browser, same pattern as components/status-pill.tsx.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    const search = window.location.search;
+    const hasShareParam = new URLSearchParams(search).has(SHARE_PARAM);
+    const restored = hasShareParam
+      ? decodeShareState(search)
+      : (loadPersistedState() ?? sanitizePersistedState(undefined));
+    setAssumptions(restored.assumptions);
+    setSortKey(restored.sortKey);
+    setHydrated(true);
+  }, []);
+
+  // Persist every subsequent change back to localStorage — but only after
+  // the restore effect above has run once, so we don't clobber a
+  // freshly-restored value with the pre-restore default on the very first
+  // render.
+  useEffect(() => {
+    if (!hydrated) return;
+    savePersistedState({ assumptions, sortKey });
+  }, [hydrated, assumptions, sortKey]);
 
   // lib/scoring.ts's scoreAll() is the single source of scored/ranked
   // output — this component never re-derives net_cash, feasibility, etc.
@@ -95,9 +127,15 @@ export default function Home() {
           onSortKeyChange={setSortKey}
           onReset={() => {
             setAssumptions(DEFAULT_ASSUMPTIONS);
-            setSortKey("score");
+            setSortKey(DEFAULT_SORT_KEY);
           }}
         />
+
+        <div className="flex justify-end">
+          <ShareButton state={{ assumptions, sortKey }} />
+        </div>
+
+        <StackSuggesterPanel eligible={eligible} />
 
         <RankedTable
           eligible={ranked}

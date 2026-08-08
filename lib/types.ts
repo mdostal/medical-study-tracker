@@ -118,3 +118,95 @@ export const DEFAULT_ASSUMPTIONS: Assumptions = {
   w_downtime: 0.20,
   fx_cad_usd: 0.73,
 };
+
+// --- Persisted/shareable state ---------------------------------------------
+//
+// "Profile" is the product term for a visitor's tunable inputs — see
+// design-discussion.md §7 V1: "'Profile' is now the canonical term;
+// 'assumptions panel' is only the UI name for editing it." In code that
+// tunable object is the `Assumptions` type above (kept as-is rather than
+// renamed, since lib/scoring.ts's signature already depends on it). SortKey
+// is the other bit of view state a "share this view" link needs to carry so
+// the reproduced view actually matches what was shared, not just the inputs.
+//
+// PersistedState, its default, and sanitizePersistedState are the shared
+// contract between lib/profile-store.ts (localStorage adapter) and
+// lib/share-link.ts (URL encode/decode) — both restore-paths (reload vs.
+// opening a share link) fall back to the exact same defaults the exact same
+// way. This stays here, not in either adapter, so scoring.ts/types.ts remain
+// the framework-free foundation both adapters build on — sanitizePersistedState
+// itself touches no browser API, it's a pure object validator.
+
+export type SortKey =
+  | "score"
+  | "net_cash"
+  | "cash_velocity"
+  | "downtime_rate"
+  | "pay_gross";
+
+const SORT_KEYS: readonly SortKey[] = [
+  "score",
+  "net_cash",
+  "cash_velocity",
+  "downtime_rate",
+  "pay_gross",
+];
+
+export const DEFAULT_SORT_KEY: SortKey = "score";
+
+export interface PersistedState {
+  assumptions: Assumptions;
+  sortKey: SortKey;
+}
+
+export const DEFAULT_PERSISTED_STATE: PersistedState = {
+  assumptions: DEFAULT_ASSUMPTIONS,
+  sortKey: DEFAULT_SORT_KEY,
+};
+
+function isSortKey(value: unknown): value is SortKey {
+  return typeof value === "string" && (SORT_KEYS as readonly string[]).includes(value);
+}
+
+function sanitizeAssumptions(input: unknown): Assumptions {
+  const src = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  const num = (v: unknown, fallback: number) =>
+    typeof v === "number" && Number.isFinite(v) ? v : fallback;
+  const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
+  const rawHomeBase = src.home_base;
+  const home_base =
+    rawHomeBase === "austin" || rawHomeBase === "omaha"
+      ? rawHomeBase
+      : DEFAULT_ASSUMPTIONS.home_base;
+
+  return {
+    home_base,
+    nanny_rate: num(src.nanny_rate, DEFAULT_ASSUMPTIONS.nanny_rate),
+    flight_cost: num(src.flight_cost, DEFAULT_ASSUMPTIONS.flight_cost),
+    drive_cost: num(src.drive_cost, DEFAULT_ASSUMPTIONS.drive_cost),
+    friend_threshold_nights: num(
+      src.friend_threshold_nights,
+      DEFAULT_ASSUMPTIONS.friend_threshold_nights,
+    ),
+    max_away_nights: num(src.max_away_nights, DEFAULT_ASSUMPTIONS.max_away_nights),
+    model_childcare: bool(src.model_childcare, DEFAULT_ASSUMPTIONS.model_childcare),
+    w_net: num(src.w_net, DEFAULT_ASSUMPTIONS.w_net),
+    w_velocity: num(src.w_velocity, DEFAULT_ASSUMPTIONS.w_velocity),
+    w_downtime: num(src.w_downtime, DEFAULT_ASSUMPTIONS.w_downtime),
+    fx_cad_usd: num(src.fx_cad_usd, DEFAULT_ASSUMPTIONS.fx_cad_usd),
+  };
+}
+
+/**
+ * Normalize arbitrary/untrusted input (parsed JSON from localStorage or a
+ * share-link URL) into a valid PersistedState. Never throws — anything
+ * missing, malformed, or wrong-typed falls back to defaults field-by-field,
+ * per this story's "malformed share link" acceptance criterion.
+ */
+export function sanitizePersistedState(input: unknown): PersistedState {
+  const src = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  return {
+    assumptions: sanitizeAssumptions(src.assumptions),
+    sortKey: isSortKey(src.sortKey) ? src.sortKey : DEFAULT_SORT_KEY,
+  };
+}

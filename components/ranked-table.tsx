@@ -11,16 +11,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/status-pill";
 import { cn } from "@/lib/utils";
-import type { Profile } from "@/lib/types";
+import type { Profile, SortKey } from "@/lib/types";
 
-export type SortKey =
-  | "score"
-  | "net_cash"
-  | "cash_velocity"
-  | "downtime_rate"
-  | "pay_gross";
+// Canonical definition lives in lib/types.ts (shared with lib/profile-store.ts
+// and lib/share-link.ts for local-persistence-share-links); re-exported here
+// so existing "@/components/ranked-table" imports keep working unchanged.
+export type { SortKey };
 
 export const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "score", label: "Score" },
@@ -257,9 +255,7 @@ export function RankedTable({
                     {s.phone ?? "—"}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="font-mono text-[0.62rem] font-normal">
-                      {s.status ?? "enrolling"}
-                    </Badge>
+                    <StatusPill studyId={s.id} />
                   </TableCell>
                 </TableRow>
               ))}
