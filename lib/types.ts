@@ -34,6 +34,7 @@ export interface Study {
   sex: Sex;
   smoker: Smoker;
   special_pop: string | null; // e.g. overweight_obese, asian_descent_required, high_cholesterol_required
+  washout_days?: number | null; // days from last dose until eligible to dose in the next study (standard ~30; per-study, phone-only). Drives stacking — enforced across companies via VCT/CTSdatabase.
   min_weight_lb?: number;
   travel_stipend_per_visit?: number;
   eligible?: boolean;      // precomputed in seed for clearly-blocked studies

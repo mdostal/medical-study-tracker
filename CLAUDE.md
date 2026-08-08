@@ -28,17 +28,22 @@ scrubbed.** Going forward:
 
 ## Architecture decisions (superseding older REQUIREMENTS.md language)
 
-- **Auth/profile: lightweight, not heavy multi-tenant Supabase.** Users get a simple, cheap
-  Clerk-style profile (or equivalent lightweight auth) to save their own assumptions (BMI, base
-  city, friend map) and saved searches/rankings. This replaces the earlier "Supabase auth + RLS,
-  full multi-tenant plugin shell" framing in `docs/REQUIREMENTS.md` — treat that section as
-  superseded by this note until REQUIREMENTS.md itself is updated.
+- **No accounts, no auth, no backend for v1.** Every visitor's Profile (BMI, base city, weights)
+  and status-pipeline state persist purely client-side via `localStorage` — zero sign-in, zero
+  server-side storage, zero third-party vendor. Sharing a specific ranking view happens via a link
+  that encodes the Profile in the URL, not via an account system. This replaces both the original
+  "Supabase auth + RLS, full multi-tenant plugin shell" framing in `docs/REQUIREMENTS.md` AND an
+  earlier (superseded) Clerk-based plan — the reasoning: keep the tool as cheap, free, and
+  miniscule as possible; a real account system isn't needed just to "save your settings" or "share
+  a search." See `.pHive/epics/public-launch/docs/design-discussion.md` §9 for the full decision
+  trail (Clerk was seriously scoped, then dropped in favor of this).
 - **Owner's personal defaults are local-only.** A gitignored `.local/` folder holds the owner's own
-  assumptions/profile for their own use of the tool. The public app ships with a generic example
-  profile and lets any visitor edit their own inputs client-side (persisted per-user once the
-  lightweight profile system lands; localStorage before that).
-- Engine (`lib/scoring.ts`) stays pure and framework-free per the existing convention — this is
-  unaffected by the auth/profile changes above.
+  assumptions/profile for their own dev-time use. The public app ships with a generic example
+  profile; any visitor's real inputs live only in their own browser's `localStorage`, same as
+  everyone else's.
+- Engine (`lib/scoring.ts`) stays pure and framework-free per the existing convention. All
+  persistence (currently `localStorage`) is isolated behind a thin `lib/profile-store.ts` adapter
+  so the engine never imports browser or framework APIs.
 
 ## Build commands (intended — app not yet scaffolded)
 

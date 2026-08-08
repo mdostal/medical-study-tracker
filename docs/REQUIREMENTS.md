@@ -44,7 +44,10 @@ Rank by **net-of-everything and speed-to-cash**, never by the headline "up to $"
    Persist (localStorage in prototype; Supabase row in the app).
 7. **National network directory** — from `networks.json`, with portal links + phones + the call script.
 8. **Stack suggester** — best combination of studies to hit a cash target (e.g. "$30k by November"),
-   respecting that two studies can't have overlapping confinement windows.
+   respecting (a) no overlapping confinement windows AND (b) the **washout gap**: no two *drug* studies
+   may dose within `washout_days` (standard ~30) of each other. Clinics enforce this across companies via
+   shared databases (VCT / CTSdatabase) — so true back-to-back is impossible; the suggester must space
+   dosings ≥ washout apart (follow-up visits may overlap the gap). Non-drug studies are exempt.
 
 ## Nice-to-have (Phase 1.5+)
 

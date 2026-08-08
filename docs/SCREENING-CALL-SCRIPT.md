@@ -30,8 +30,10 @@ call is where you get them. Read this off a card; log answers back into the stud
 
 - "Am I eligible as a **US citizen** for this site?" (Canada studies — Montreal, Toronto)
 - "When's the **next screening slot**, and what does screening involve (bloodwork, fasting)?"
-- "If I do this one, when am I **washout-clear** to do another?" (studies require gaps between them — this
-  determines what you can stack)
+- **"What's the washout period — how long after the last dose before I can dose in another study?"**
+  (Standard is ~**30 days**, longer for long-half-life drugs. Clinics enforce it via shared databases —
+  **Verified Clinical Trials (VCT) / CTSdatabase** — that flag dual-enrollment across companies, so you
+  CANNOT do two drug studies back-to-back. This determines what you can stack. Capture as `washout_days`.)
 
 ## Call order (from the ranked tool, austin base, today)
 
