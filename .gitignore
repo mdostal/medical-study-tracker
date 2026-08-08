@@ -30,3 +30,10 @@ coverage/
 # personal / do-not-publish
 # (friend map is anonymized city-only by design; keep it in-repo. Never add friends' names/details.)
 .local/
+
+# Hive orchestration state (internal tooling, not product content).
+# Repeatedly proven risky to track: harness bookkeeping under agent-complete/
+# narrates "what I renamed/removed" and can quote old (pre-scrub) identifiers
+# verbatim; broad `git add`/`git add -A` from any agent sweeps it in
+# unpredictably. Never re-track any part of .pHive/ in this repo.
+.pHive/
