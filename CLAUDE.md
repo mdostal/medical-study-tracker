@@ -9,10 +9,12 @@ free tool linked from the owner's site under `/tools`. Repo is public. See `READ
 
 ## Critical rule: NO PII in this repo, ever
 
-This repo is public. Earlier drafts hard-coded the owner's personal circumstances (child's first
-name, exact biometrics, custody status, financial urgency, relocation plans) directly into docs,
-`lib/types.ts` field names (e.g. a `can_take_riley` field), and seed data. **That is being
-scrubbed.** Going forward:
+This repo is public. Earlier drafts hard-coded the owner's personal circumstances (a family member's
+first name, exact biometrics, custody status, financial urgency, relocation plans) directly into
+docs, `lib/types.ts` field names (e.g. a field name that embedded a family member's first name,
+since renamed to `childcare_available`), and seed data. **That has been scrubbed from the working
+tree** (see the `scrub-working-tree-pii` story); a git-history rewrite is still pending before the
+repo can flip public. Going forward:
 
 - Never commit a real person's name (the owner's, a family member's, a friend's) anywhere in the repo.
 - Never commit specific biometric/medical details as if they belong to a real person — the shipped

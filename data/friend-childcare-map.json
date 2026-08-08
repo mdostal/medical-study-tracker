@@ -1,16 +1,16 @@
 {
-  "_comment": "DO NOT GUESS. Childcare / friend coverage is set ONLY by the user, per study — never inferred by a model. An earlier version INVENTED per-city likelihoods (e.g. 'San Diego: likely', 'Phoenix: likely') and let them rank studies. That was wrong and is removed. The user gave a national friend list to justify listing studies EVERYWHERE (he'll travel), NOT to declare who can watch his daughter. Default every location to UNKNOWN; the user decides coverage study-by-study.",
+  "_comment": "DO NOT GUESS. Childcare / friend coverage is set ONLY by the user, per study — never inferred by a model. An earlier version INVENTED per-city likelihoods (e.g. 'San Diego: likely', 'Phoenix: likely') and let them rank studies. That was wrong and is removed. This file ships as ANONYMIZED EXAMPLE data only — generic city + coverage note, never a real friend's name or identifying detail. A national city list can justify listing studies nationwide (a user may be willing to travel) without that being a childcare confirmation. Default every location to UNKNOWN; the user decides coverage study-by-study.",
   "rule": "Never assign childcare coverage from a model. Only the user sets it. Ranking MUST NOT depend on guessed childcare — rank on pay, nights, drive-vs-fly, payout timing, eligibility.",
   "user_stated_coverage": [
-    { "metro": "Salt Lake City, UT", "note": "User stated: has friends there who could watch Riley." },
-    { "metro": "San Antonio, TX", "note": "User stated: it's near home (he lives OUTSIDE Austin, ~1.5 hr drive); the friends who started this whole thing are here; they offered a weekend. Nothing beyond that is confirmed." },
-    { "metro": "Las Vegas, NV", "note": "User stated: knows people in Vegas." }
+    { "metro": "Salt Lake City, UT", "note": "Example: user has friends there who could provide childcare coverage." },
+    { "metro": "San Antonio, TX", "note": "Example: metro is a short drive from the user's home base and they have contacts there who offered to help for a weekend stay. Nothing beyond that is confirmed." },
+    { "metro": "Las Vegas, NV", "note": "Example: user has contacts in this metro." }
   ],
   "national_cities_FOR_LISTING_ONLY": ["San Diego", "Mesa", "Phoenix", "Philadelphia", "New York", "Atlanta", "Wisconsin", "Omaha", "DFW"],
-  "national_note": "Cities the user named to justify listing studies NATIONWIDE. These are NOT childcare confirmations — many friends cannot take her. Do not mark coverage for them.",
+  "national_note": "Example cities a user might name to justify listing studies nationwide. These are NOT childcare confirmations — coverage is never assumed from this list. Do not mark coverage for them.",
   "base_drive_hubs": { "austin": ["SA", "DFW"], "omaha": ["LINC", "LEN"] },
   "home_base": {
-    "lives": "outside Austin, TX",
+    "lives": "Austin, TX (example)",
     "drive_hubs_austin": ["San Antonio (~1.5 hr)", "Dallas (~3 hr)"],
     "drive_hubs_omaha_future": ["Lincoln NE (~1 hr)", "Overland Park KS (~3 hr)"]
   }

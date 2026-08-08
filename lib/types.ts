@@ -58,7 +58,7 @@ export interface Profile {
 export interface FriendMetro {
   metro: string;
   covers_hubs: string[];
-  can_take_riley: CanTake;
+  childcare_available: CanTake;
   has_kids?: boolean | null;
   notes?: string;
 }
@@ -67,7 +67,7 @@ export interface FriendMap {
   hubs: Record<string, string>;
   friend_metros: FriendMetro[];
   base_drive_hubs: Record<string, string[]>;
-  home_base_childcare: Record<string, { can_take_riley: CanTake; notes?: string }>;
+  home_base_childcare: Record<string, { childcare_available: CanTake; notes?: string }>;
 }
 
 export interface Assumptions {

@@ -15,8 +15,8 @@ This one models the **real** decision:
 - **Net cash kept** = gross − travel − childcare (using *your* base city, friend map, and nanny rate)
 - **Cash velocity** = net ÷ days-until-actually-paid (the "$30k-in-6-months vs $15k-in-1-month" judge)
 - **Downtime rate** = net ÷ total days of life committed (confinement + follow-up tail)
-- **Feasibility gate** = can childcare actually be arranged for this stay, in this city, given a
-  single parent? (friend-city / nanny-housesit / blocked)
+- **Feasibility gate** = can childcare actually be arranged for this stay, in this city, given the
+  user's circumstances? (friend-city / nanny-housesit / blocked)
 - **Eligibility gate** = BMI, age, sex, smoker, special-population — filters out what you can't get
   before it wastes your time.
 
@@ -24,13 +24,15 @@ You tune the weights; it re-ranks. See `docs/SCORING.md`.
 
 ## Status / roadmap
 
-- **Phase 0 (now):** private tool for the owner. Seed data in `data/`, working reference model in
-  `prototype/net-value-model.html` (open it in a browser — it already ranks the seed studies live).
+- **Phase 0 (now):** private tool for the owner's own use. Seed data in `data/`, working reference
+  model in `prototype/net-value-model.html` (open it in a browser — it already ranks the seed studies
+  live).
 - **Phase 1 (hive build):** Next.js + TypeScript + Tailwind + shadcn app implementing `lib/scoring.ts`
   as the engine, `data/*.json` as seed, with tunable-weight UI, status tracking, and a national
-  network directory. Supabase (Postgres + RLS) for multi-user later. See `docs/REQUIREMENTS.md`.
-- **Phase 2 (public, later):** open it to others as a free tool on the site — **only after the owner's
-  own cash need is met.** Not shared publicly at launch.
+  network directory. See `docs/REQUIREMENTS.md`.
+- **Phase 2 (public):** ships as a free, public tool linked from the owner's site — no accounts, no
+  backend; every visitor's profile and status state persist in their own browser via `localStorage`,
+  with a shareable link that encodes the profile for sharing a specific ranking view.
 
 ## Stack (intended — for the hive)
 

@@ -11,17 +11,19 @@ gate and a childcare-feasibility gate applied.
 
 ## 0. Eligibility gate (hard filter — runs first)
 
-A study is `eligible_for_him = false` (excluded from ranking, shown in a separate "doesn't apply"
-list) if ANY of:
+A study is `eligible = false` (excluded from ranking, shown in a separate "doesn't apply" list) if
+ANY of:
 
-- `sex` is `female` (female-only study)
-- `special_pop` is set (e.g. `overweight` / `obese` — requires BMI ≥ 27) — he is lean, BMI ~22.5
-- his BMI (22.5) is outside `[bmi_min, bmi_max]` when those are known
-- his age is outside `[age_min, age_max]` (⚠ verify his exact age against any `age_max ≤ 40` study)
-- `smoker` requirement is `smoker-only`
+- `sex` is `female` and the user's profile sex is `male` (female-only study)
+- `special_pop` is set (e.g. `overweight` / `obese` — requires BMI ≥ 27) and the profile's BMI doesn't
+  meet it
+- the profile's BMI is outside `[bmi_min, bmi_max]` when those are known
+- the profile's age is outside `[age_min, age_max]` (⚠ verify the exact age against any
+  `age_max ≤ 40` study)
+- `smoker` requirement is `smoker-only` and the profile isn't a smoker
 
 If BMI is `null` (portal didn't publish it), do NOT exclude — mark `bmi_unconfirmed = true` and rank
-it, flagged "confirm BMI on call." Most healthy-volunteer floors are 18–18.5; he clears them.
+it, flagged "confirm BMI on call." Most healthy-volunteer floors are 18–18.5.
 
 ---
 
@@ -29,14 +31,14 @@ it, flagged "confirm BMI on call." Most healthy-volunteer floors are 18–18.5; 
 
 | Input | Default | Meaning |
 |---|---|---|
-| `home_base` | `austin` | `austin` (now) or `omaha` (after move). Sets drive-vs-fly per city. |
+| `home_base` | `austin` | `austin` or `omaha` (example base-city options). Sets drive-vs-fly per city. |
 | `nanny_rate` | `200` | $/night for a hired nanny/house-sitter on stays no friend can cover |
 | `flight_cost` | `350` | round-trip airfare per trip to a non-drivable city |
 | `drive_cost` | `70` | round-trip gas per trip to a drivable city (< ~4 hr) |
 | `friend_threshold_nights` | `3` | a stay ≤ this many nights is coverable by a local friend for ~free even without a dedicated childcare friend in that city |
-| `max_away_nights` | `31` | he'll do up to ~a month away IF a nanny house-sit makes financial sense; longer single stays get a hard feasibility penalty |
+| `max_away_nights` | `31` | the user's willingness to be away up to ~a month IF a nanny house-sit makes financial sense; longer single stays get a hard feasibility penalty |
 | `w_net` | `0.35` | weight on raw net cash kept |
-| `w_velocity` | `0.45` | weight on cash speed (HIGH now — bridge cash is urgent) |
+| `w_velocity` | `0.45` | weight on cash speed (raise this if speed-to-cash matters most to the user) |
 | `w_downtime` | `0.20` | weight on life-downtime efficiency |
 | `fx_cad_usd` | `0.73` | CAD→USD, to compare Canadian studies in one currency |
 
@@ -57,9 +59,10 @@ inpatient_nights = sum(stays)
 trips            = stays.length + visits           // each stay and each in-person visit is a journey
 ```
 
-**Childcare cost** — ⚠ **NEVER guessed.** The tool must not infer who can watch his kid in which
-city, and ranking must not depend on it. Default `childcare_cost = 0` — the user weighs coverage per
-study himself. Only if the user explicitly turns on `model_childcare` does it apply a flat estimate:
+**Childcare cost** — ⚠ **NEVER guessed.** The tool must not infer who can provide childcare coverage
+in which city, and ranking must not depend on it. Default `childcare_cost = 0` — the user weighs
+coverage per study themselves. Only if the user explicitly turns on `model_childcare` does it apply a
+flat estimate:
 ```
 childcare_cost = model_childcare
   ? sum(n * nanny_rate for each stay of n nights where n > friend_threshold_nights)
@@ -75,7 +78,7 @@ per_trip      = drivable ? drive_cost : flight_cost
 travel_cost   = trips * per_trip
 ```
 
-**Payout timeline (the new dimension)** — when he actually has ALL the cash:
+**Payout timeline (the new dimension)** — when the user actually has ALL the cash:
 ```
 settle_days = payout.settle_days
               // if unknown, estimate conservatively (worst case = paid at the very end):
@@ -101,15 +104,16 @@ downtime_days = inpatient_nights + followups.window_weeks*7*0.15
 ## 3. The three headline metrics
 
 ```
-net_cash      = pay - travel_cost - childcare_cost           // what he keeps
+net_cash      = pay - travel_cost - childcare_cost           // what the user keeps
 cash_velocity = net_cash / max(settle_days, 1) * 30          // net $ per 30 days until paid  ← the $30k-6mo vs $15k-1mo judge
 downtime_rate = net_cash / max(downtime_days, 1)             // net $ per day of life committed
 eff_per_night = net_cash / max(inpatient_nights, 1)          // net $ per inpatient night (secondary)
 ```
 
-`cash_velocity` is the one that answers his exact question: a $30k paying at 6 months has velocity
-`30000/180*30 = $5,000/mo`; a $15k paying at 1 month has velocity `15000/30*30 = $15,000/mo` — the
-smaller-faster study wins on velocity, and if bridge cash is the goal, that's correct.
+`cash_velocity` answers the core question this tool exists for: a $30k study paying at 6 months has
+velocity `30000/180*30 = $5,000/mo`; a $15k study paying at 1 month has velocity
+`15000/30*30 = $15,000/mo` — the smaller-faster study wins on velocity, and if speed-to-cash is the
+goal, that's correct.
 
 ---
 
@@ -124,7 +128,7 @@ else if max_stay <= max_away_nights AND (net_cash after nanny) > 0 comfortably:
 else if max_stay <= max_away_nights:
     feasibility = 'HARD'      ; mult = 0.60    // doable but the nanny eats most of the gain
 else:
-    feasibility = 'BLOCKED'   ; mult = 0.00    // single stay longer than he can be away
+    feasibility = 'BLOCKED'   ; mult = 0.00    // single stay longer than the user can be away
 ```
 
 ---
@@ -160,5 +164,5 @@ cost + who covers · feasibility · eligibility flags (BMI/age/sex/smoker + "con
 - Altasciences KC `N47` — $6,800, Overland Park KS, ~8 nights, 4 visits, **drivable from Omaha** → if
   `home_base=omaha`, travel collapses to ~$350 total and it leaps up the board.
 
-The point: the ranking is *supposed* to change when he flips base or a friend confirms a city. That's
-the tool doing its job.
+The point: the ranking is *supposed* to change when the user flips base city or confirms childcare
+coverage in a new city. That's the tool doing its job.

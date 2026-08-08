@@ -2,13 +2,14 @@
 
 ## The user & the job
 
-A single parent, lean healthy non-smoking male (BMI ~22.5), needs **bridge cash now** and is
-willing to travel the country (his friend network is national) to do paid Phase-1 clinical trials.
-The job: **decide which studies are actually worth it**, accounting for childcare, travel, payout
-timing, and downtime — then track the pipeline (called → screening → enrolled → paid). Later: open it
-to others as a free public tool.
+A generic example user: a lean, healthy, non-smoking adult willing to travel nationally (a national
+friend network) to do paid Phase-1 clinical trials. The job: **decide which studies are actually
+worth it**, accounting for childcare, travel, payout timing, and downtime — then track the pipeline
+(called → screening → enrolled → paid). Later: open it to others as a free public tool. Every real
+user's own profile (BMI, base city, etc.) is theirs alone, entered locally and never sent anywhere —
+see "Build conventions" / Phase 2 below.
 
-This is the same shape as his **gig-tracker** (job pipeline) — a personal decision+status tool that
+This is the same shape as a **gig-tracker** (job pipeline) — a personal decision+status tool that
 graduates into a product.
 
 ## Core principle
@@ -24,8 +25,9 @@ Rank by **net-of-everything and speed-to-cash**, never by the headline "up to $"
   apply_url, phone, verified date, status, notes.
 - **Network** — a CRO and its sites: name, sites[{city, state, country, hub}], portal_url, phone,
   pull_method (how to scrape it live), verified.
-- **FriendCity** — a city where he has friends: city, state, `can_take_riley` (yes/maybe/no),
-  `has_kids`, nearby study hubs, notes. **Anonymized — city + likelihood only, never friend names.**
+- **FriendCity** — a city where the user has friends: city, state, `childcare_available`
+  (yes/maybe/no), `has_kids`, nearby study hubs, notes. **Anonymized — city + likelihood only, never
+  friend names.**
 - **Assumptions** — the tunable inputs from SCORING §1 (base, nanny rate, travel costs, weights…).
 - **ScoredStudy** — a Study + all derived metrics + score + feasibility + flags.
 
@@ -41,7 +43,7 @@ Rank by **net-of-everything and speed-to-cash**, never by the headline "up to $"
    covers"; elsewhere shows the nanny cost that got subtracted. Editable per city (yes/maybe/no).
 5. **Eligibility gate** — separate "you qualify" vs "doesn't apply (why)" lists. Never bury the gate.
 6. **Status pipeline** — per study: not-started → called → screening → enrolled → done → not-eligible.
-   Persist (localStorage in prototype; Supabase row in the app).
+   Persist to `localStorage` — no account, no backend row; see "Phase 2 — public" below.
 7. **National network directory** — from `networks.json`, with portal links + phones + the call script.
 8. **Stack suggester** — best combination of studies to hit a cash target (e.g. "$30k by November"),
    respecting (a) no overlapping confinement windows AND (b) the **washout gap**: no two *drug* studies
@@ -52,33 +54,34 @@ Rank by **net-of-everything and speed-to-cash**, never by the headline "up to $"
 ## Nice-to-have (Phase 1.5+)
 
 - **Calendar view** — plot confinement windows + follow-up tails; detect date collisions between
-  stacked studies; overlay Riley's school/custody calendar.
+  stacked studies; overlay the user's own personal-calendar constraints (school pickup, custody
+  schedule, work travel, etc. — whatever applies to them).
 - **Cash-target planner** — input "$X by date," output the lowest-downtime combination that clears it.
-- **Referral inbox** — his friends send study referrals; a quick "add study by URL" that pre-fills via
+- **Referral inbox** — friends send study referrals; a quick "add study by URL" that pre-fills via
   the live-DOM puller.
 - **Auto-refresh** the seed from each network (the pullers in DATA-SOURCES) on a schedule.
 
-## Phase 2 — productize as a Pantheon plugin (public)
+## Phase 2 — public
 
-The end state: this is **not a standalone app — it's a true plugin for Pantheon** (the owner's
-platform), a sibling to the **gig-tracker** plugin. Same plugin contract, shared auth, shared
-multi-tenant shell. Build Phase 1 so the engine (`lib/scoring.ts`) and data layer are cleanly
-separable from any app chrome, so wrapping it as a Pantheon plugin is a lift-and-shift, not a rewrite.
+**No accounts, no auth, no backend for v1.** Every visitor's Profile (BMI, base city, weights) and
+status-pipeline state persist purely client-side via `localStorage` — zero sign-in, zero server-side
+storage, zero third-party auth vendor. Sharing a specific ranking view happens via a link that encodes
+the Profile in the URL, not via an account system (an earlier Clerk-based, account-per-user plan was
+seriously scoped and then dropped — see `.pHive/epics/public-launch/docs/design-discussion.md` §9 for
+the full decision trail). The reasoning: keep the tool as cheap, free, and small as possible — a real
+account system isn't needed just to "save your settings" or "share a search."
 
-- **Pantheon-plugin architecture** — conform to Pantheon's plugin interface (auth, tenancy, billing,
-  UI shell) rather than owning those. The scoring engine + data schema are the plugin's payload.
-- **Pre-launch sign-up capture (do this EARLY, before full release):** a landing page + waitlist that
-  collects emails now, so there's an audience the day it opens. Public release can come **before** the
-  owner is in a study — the gate is "sign-ups flowing," not "cash in hand." Capture first, monetize
-  next.
-- **Multi-user** (Supabase auth + RLS): each user sets their own profile (BMI, sex, base city, friend
-  map) and the same engine ranks for them. The friend-childcare + payout-timing model is the moat —
-  no other "find a study" site does net-value ranking.
-- **Monetization** — TBD via Pantheon (freemium / plugin subscription). "Let others use it just as we
-  do." Sequenced: waitlist → open beta → paid tier.
+- **Anonymous by default** — the entire tool works fully client-side; no account of any kind exists.
+  The scoring engine (`lib/scoring.ts`) stays pure and framework-free; all persistence is isolated
+  behind a thin `lib/profile-store.ts` adapter so the engine never imports browser or framework APIs.
+- **Pre-launch sign-up capture (optional, do this EARLY if pursued):** a landing page + waitlist that
+  collects emails ahead of full release, so there's an audience the day it opens.
+- **Public app ships with a generic example Profile** — any visitor's real inputs live only in their
+  own browser's `localStorage`, same as everyone else's. The friend-childcare + payout-timing model is
+  the differentiator — no other "find a study" site does net-value ranking.
+- **Monetization** — out of scope for v1; not needed given the zero-backend cost structure.
 
-Roadmap sequence: **private (owner) → pre-launch waitlist → public beta as a Pantheon plugin → paid.**
-Ties to the Pantheon time-flywheel + the small-contract automation model.
+Roadmap sequence: **private (owner, local dev) → public, anonymous, localStorage-only tool.**
 
 ## Explicit non-goals
 
@@ -89,6 +92,7 @@ Ties to the Pantheon time-flywheel + the small-contract automation model.
 
 ## Build conventions
 
-Next.js 15 App Router · TS · Tailwind · shadcn/ui · Supabase. Keep `lib/scoring.ts` **pure and
-framework-free** so it's unit-testable and reusable server- or client-side. Seed from `data/*.json`.
+Next.js 15 App Router · TS · Tailwind · shadcn/ui · no backend, no auth vendor (see Phase 2 above).
+Keep `lib/scoring.ts` **pure and framework-free** so it's unit-testable and reusable server- or
+client-side. Seed from `data/*.json`.
 Mirror `personal-drone` repo conventions.

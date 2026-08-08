@@ -21,3 +21,4 @@ dist/
 
 # personal / do-not-publish
 # (friend map is anonymized city-only by design; keep it in-repo. Never add friends' names/details.)
+.local/
