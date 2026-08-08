@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearPersistedState, loadPersistedState, savePersistedState } from "../profile-store";
-import { DEFAULT_ASSUMPTIONS, DEFAULT_SORT_KEY, type PersistedState } from "../types";
+import {
+  addUserStudy,
+  clearPersistedState,
+  loadPersistedState,
+  loadUserStudies,
+  removeUserStudy,
+  savePersistedState,
+  saveUserStudies,
+} from "../profile-store";
+import { DEFAULT_ASSUMPTIONS, DEFAULT_SORT_KEY, type PersistedState, type Study } from "../types";
 
 // In-memory Storage stub — avoids pulling in jsdom just for localStorage.
 // Stubbed onto the global `localStorage` identifier (not `window`), matching
@@ -66,6 +74,106 @@ describe("profile-store (localStorage adapter)", () => {
       assumptions: DEFAULT_ASSUMPTIONS,
       sortKey: "score",
     });
+  });
+});
+
+// story: add-study-by-url — user-added studies list, sharing the same
+// localStorage adapter as the Profile above (a different key, same module).
+describe("profile-store user-added studies", () => {
+  beforeEach(() => {
+    vi.stubGlobal("localStorage", makeFakeStorage());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const sampleStudy: Study = {
+    id: "user-friendco-abc123",
+    network: "Friend's CRO",
+    city: "Austin",
+    state: "TX",
+    hub: "",
+    pay_gross: 5000,
+    currency: "USD",
+    payout: { type: "unknown", settle_days: null },
+    stays: [8],
+    visits: 2,
+    bmi_min: null,
+    bmi_max: null,
+    age_min: 18,
+    age_max: 99,
+    sex: "M/F",
+    smoker: "any",
+    special_pop: null,
+    status: "enrolling",
+    source_url: "https://iconstudies.com/study/1",
+  };
+
+  it("loadUserStudies returns [] when nothing has been added", () => {
+    expect(loadUserStudies()).toEqual([]);
+  });
+
+  it("addUserStudy persists the study and tags it user_added:true even if not passed in", () => {
+    const result = addUserStudy(sampleStudy);
+    expect(result).toEqual([{ ...sampleStudy, user_added: true }]);
+    expect(loadUserStudies()).toEqual([{ ...sampleStudy, user_added: true }]);
+  });
+
+  it("addUserStudy appends without clobbering a prior entry", () => {
+    addUserStudy(sampleStudy);
+    addUserStudy({ ...sampleStudy, id: "user-friendco-def456" });
+    expect(loadUserStudies().map((s) => s.id)).toEqual([
+      "user-friendco-abc123",
+      "user-friendco-def456",
+    ]);
+  });
+
+  it("removeUserStudy removes only the matching id", () => {
+    addUserStudy(sampleStudy);
+    addUserStudy({ ...sampleStudy, id: "user-friendco-def456" });
+    removeUserStudy("user-friendco-abc123");
+    expect(loadUserStudies().map((s) => s.id)).toEqual(["user-friendco-def456"]);
+  });
+
+  it("loadUserStudies drops corrupt entries instead of throwing", () => {
+    localStorage.setItem(
+      "mst.userStudies.v1",
+      JSON.stringify([sampleStudy, { garbage: true }, "not an object", 42]),
+    );
+    expect(() => loadUserStudies()).not.toThrow();
+    expect(loadUserStudies()).toEqual([{ ...sampleStudy, user_added: true }]);
+  });
+
+  it("loadUserStudies returns [] (not a throw) for corrupted stored JSON", () => {
+    localStorage.setItem("mst.userStudies.v1", "{not valid json");
+    expect(() => loadUserStudies()).not.toThrow();
+    expect(loadUserStudies()).toEqual([]);
+  });
+
+  it("saveUserStudies + loadUserStudies round-trip a list", () => {
+    saveUserStudies([sampleStudy]);
+    expect(loadUserStudies()).toEqual([{ ...sampleStudy, user_added: true }]);
+  });
+
+  it("never leaves the visitor's browser: only localStorage is touched, nothing network-adjacent", () => {
+    // addUserStudy/loadUserStudies/saveUserStudies/removeUserStudy are pure
+    // localStorage reads/writes with no fetch/XHR — this test documents
+    // that contract by asserting no global fetch was ever invoked.
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    addUserStudy(sampleStudy);
+    loadUserStudies();
+    removeUserStudy(sampleStudy.id);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("profile-store user studies without localStorage available", () => {
+  it("no-ops/returns [] instead of throwing when localStorage is undefined", () => {
+    expect(() => loadUserStudies()).not.toThrow();
+    expect(loadUserStudies()).toEqual([]);
+    expect(() => addUserStudy({ id: "x" } as Study)).not.toThrow();
   });
 });
 

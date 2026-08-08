@@ -18,9 +18,16 @@
 // localStorage" and "restore from a share link" fall back to the exact same
 // defaults the exact same way.
 
-import { sanitizePersistedState, type PersistedState } from "./types";
+import { sanitizePersistedState, type PersistedState, type Study } from "./types";
 
 const STORAGE_KEY = "mst.profileState.v1";
+
+// Story add-study-by-url reuses this module (rather than a second
+// localStorage adapter) for the visitor's own added-studies list — same
+// "one module touches storage" boundary local-persistence-share-links
+// established for the Profile. Separate key so a corrupt/cleared Profile
+// never wipes a visitor's added studies or vice versa.
+const USER_STUDIES_KEY = "mst.userStudies.v1";
 
 function hasLocalStorage(): boolean {
   try {
@@ -62,4 +69,65 @@ export function clearPersistedState(): void {
   } catch {
     // ignore
   }
+}
+
+// --- User-added studies (story: add-study-by-url) --------------------------
+//
+// A visitor's own "add study by URL" entries — confirmed/edited via
+// components/add-study-form.tsx, always tagged user_added:true (see
+// lib/types.ts). Never submitted to any server, never merged into
+// data/studies.seed.json, never visible to any other visitor — this array
+// lives only in this browser's localStorage, same as the Profile above.
+
+/** Minimal shape check on parsed JSON before treating an entry as a Study —
+ * corrupt/foreign localStorage content is dropped per-entry, never thrown. */
+function looksLikeStudy(value: unknown): value is Study {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.id === "string" &&
+    typeof v.network === "string" &&
+    typeof v.pay_gross === "number" &&
+    typeof v.payout === "object" &&
+    v.payout !== null
+  );
+}
+
+/** Reads the visitor's own added studies. Returns [] if unavailable/unset/corrupt. */
+export function loadUserStudies(): Study[] {
+  if (!hasLocalStorage()) return [];
+  try {
+    const raw = localStorage.getItem(USER_STUDIES_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(looksLikeStudy).map((s) => ({ ...s, user_added: true }));
+  } catch {
+    return [];
+  }
+}
+
+/** Persists the visitor's full added-studies list. No-ops if localStorage is unavailable. */
+export function saveUserStudies(studies: Study[]): void {
+  if (!hasLocalStorage()) return;
+  try {
+    localStorage.setItem(USER_STUDIES_KEY, JSON.stringify(studies));
+  } catch {
+    // Private-browsing quota, disabled storage, etc. — fail silently, same
+    // as savePersistedState above.
+  }
+}
+
+/** Appends one study (forcing user_added:true) and persists the result. */
+export function addUserStudy(study: Study): Study[] {
+  const next = [...loadUserStudies(), { ...study, user_added: true as const }];
+  saveUserStudies(next);
+  return next;
+}
+
+/** Removes one added study by id and persists the result. */
+export function removeUserStudy(id: string): Study[] {
+  const next = loadUserStudies().filter((s) => s.id !== id);
+  saveUserStudies(next);
+  return next;
 }

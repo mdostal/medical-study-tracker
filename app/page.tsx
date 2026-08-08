@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import type { Assumptions, FriendMap, Profile, SortKey, Study } from "@/lib/types";
 import { DEFAULT_ASSUMPTIONS, DEFAULT_SORT_KEY, sanitizePersistedState } from "@/lib/types";
 import { scoreAll } from "@/lib/scoring";
-import { loadPersistedState, savePersistedState } from "@/lib/profile-store";
+import { addUserStudy, loadPersistedState, loadUserStudies, savePersistedState } from "@/lib/profile-store";
 import { decodeShareState, SHARE_PARAM } from "@/lib/share-link";
+import { AddStudyForm } from "@/components/add-study-form";
 import { ProfilePanel } from "@/components/profile-panel";
 import { RankedTable, sortEligible } from "@/components/ranked-table";
 import { ShareButton } from "@/components/share-button";
@@ -50,6 +51,13 @@ const FRIEND_MAP: FriendMap = {
 export default function Home() {
   const [assumptions, setAssumptions] = useState<Assumptions>(DEFAULT_ASSUMPTIONS);
   const [sortKey, setSortKey] = useState<SortKey>(DEFAULT_SORT_KEY);
+  // Visitor's own "add study by URL" entries (story: add-study-by-url) —
+  // starts empty on every render (including SSR) and is restored from
+  // lib/profile-store.ts in the same hydrate effect below, same
+  // restore-once-on-mount pattern as assumptions/sortKey just above. Never
+  // encoded into a share link (unlike Profile/Assumptions) — these are the
+  // visitor's own local additions, not part of the shareable view.
+  const [userStudies, setUserStudies] = useState<Study[]>([]);
 
   // Restore-once-on-mount: a share link's `?s=` param wins over localStorage
   // (an explicit link someone sent you should reproduce what they saw, not
@@ -67,6 +75,7 @@ export default function Home() {
       : (loadPersistedState() ?? sanitizePersistedState(undefined));
     setAssumptions(restored.assumptions);
     setSortKey(restored.sortKey);
+    setUserStudies(loadUserStudies());
     setHydrated(true);
   }, []);
 
@@ -81,10 +90,15 @@ export default function Home() {
 
   // lib/scoring.ts's scoreAll() is the single source of scored/ranked
   // output — this component never re-derives net_cash, feasibility, etc.
-  // itself. Re-runs live in the browser on every Profile-panel change.
+  // itself. Re-runs live in the browser on every Profile-panel change, and
+  // on every "add study by URL" addition. userStudies are appended (never
+  // mutate STUDIES itself) — scoreAll/isEligible treat them exactly like
+  // seed data except for the `user_added` flag ranked-table.tsx reads to
+  // render the "unverified" badge (AC4).
+  const allStudies = useMemo(() => [...STUDIES, ...userStudies], [userStudies]);
   const { eligible, blocked } = useMemo(
-    () => scoreAll(STUDIES, DEMO_PROFILE, assumptions, FRIEND_MAP),
-    [assumptions],
+    () => scoreAll(allStudies, DEMO_PROFILE, assumptions, FRIEND_MAP),
+    [allStudies, assumptions],
   );
 
   const ranked = useMemo(() => sortEligible(eligible, sortKey), [eligible, sortKey]);
@@ -134,6 +148,8 @@ export default function Home() {
         <div className="flex justify-end">
           <ShareButton state={{ assumptions, sortKey }} />
         </div>
+
+        <AddStudyForm onAdd={(study) => setUserStudies(addUserStudy(study))} />
 
         <StackSuggesterPanel eligible={eligible} />
 
