@@ -46,6 +46,35 @@ These cohorts cycle **weekly**. Re-pull the confirmed networks (Playwright + cac
 call session; treat anything older than ~a week as stale. Always reconfirm pay + payout + nights on the
 phone — the portal is a lead, the recruiter is the source of truth.
 
+**This is now automated, daily, on top of that weekly staleness guidance** (belt + suspenders — see
+`daily-refresh-scheduled` story): `.github/workflows/daily-study-refresh.yml` runs
+`scripts/pull-studies.mjs` on a daily cron (`workflow_dispatch` also available for a manual run) and
+commits `data/studies.seed.json` when it changes, so Vercel's git-integration redeploy picks it up.
+Daily (not hourly) was a deliberate choice — see that story's `risks` for the "don't hammer the
+network sites" reasoning; each run is one page load per automated network plus a lightweight
+reachability check for the rest, well under anything that would look like scraping abuse.
+
+`scripts/pull-studies.mjs` currently has a **confirmed, live-verified DOM extraction recipe for
+four networks only**: ICON, Fortrea, Spaulding Clinical, and JBR/CenExel's healthy-volunteer
+listing (each is one function in that file, one per network's `pull_method`). Those are the only
+networks in the table above whose portal, as of this writing, publishes a public, unauthenticated,
+enumerable study *listing* with a documented DOM structure — everything else in the table is
+phone-only, register-gated, or a roster/DB submission per that network's own notes, so there's no
+listing to automate against yet. For those, the script still visits the portal with a cache-buster
+each run (to catch a hard outage) but does **not** synthesize study rows from an unconfirmed
+selector — see `docs/DATA-INTEGRITY.md` on why guessing at structure is exactly the failure mode
+to avoid. Extending automation to another network means finding and documenting its concrete
+listing recipe here first, the same way ICON's was documented, then adding a puller function.
+
+**Known gap vs. the manual/phone research pass:** the automated pullers read only what's on the
+*listing* card/row — pay, title, age range, and (where shown) nights/visits. They do **not** dig into
+per-study detail pages the way a manual pass has, so nuance that only shows up there (e.g. an
+"asian descent required" or "documented high cholesterol required" `special_pop` gate) will not
+carry forward automatically for a study that keeps showing up after a refresh. `bmi_min`/`bmi_max`
+land as `null` (safe default — triggers the existing "confirm BMI on call" flag) rather than guessed.
+Treat an automated refresh as keeping the *listing* current, not as a substitute for the phone
+confirmation this doc has always required before anyone acts on a study.
+
 ## Coverage gaps to fill next
 
 - West/SLC deep pull on **JBR/CenExel** current enrolling (not just upcoming) + **Parexel Las Vegas**

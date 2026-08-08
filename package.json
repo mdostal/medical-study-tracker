@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "pull-studies": "node scripts/pull-studies.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -34,6 +35,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.23",
+    "playwright": "^1.48.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3"

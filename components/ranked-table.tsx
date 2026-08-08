@@ -238,14 +238,14 @@ export function RankedTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    {s.apply_url ? (
+                    {s.apply_url ?? s.source_url ? (
                       <a
-                        href={s.apply_url}
+                        href={s.apply_url ?? s.source_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="rounded border border-emerald-600/40 px-1.5 py-0.5 font-mono text-[0.62rem] text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
                       >
-                        apply&nbsp;&rarr;
+                        {s.apply_url ? "apply" : "source"}&nbsp;&rarr;
                       </a>
                     ) : (
                       <span className="text-muted-foreground">—</span>
@@ -297,9 +297,9 @@ export function RankedTable({
               {blocked.map((s) => (
                 <TableRow key={s.id} className="opacity-60 hover:opacity-100">
                   <TableCell className="font-medium">
-                    {s.source_url ? (
+                    {s.source_url ?? s.apply_url ? (
                       <a
-                        href={s.source_url}
+                        href={s.source_url ?? s.apply_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline decoration-muted-foreground/40 underline-offset-2"

@@ -1,0 +1,82 @@
+name: Daily study refresh
+
+# Re-pulls confirmed networks' study listings (scripts/pull-studies.mjs, Playwright +
+# cache-buster per docs/DATA-SOURCES.md) and commits the refreshed data/studies.seed.json
+# directly to the branch this workflow runs on when it changed. Vercel's git integration
+# auto-redeploys on push once this lands on the repo's default branch.
+#
+# Note: GitHub only fires `schedule` triggers from the workflow file on the repo's *default*
+# branch. While this is landing on feat/public-launch (pre-merge, per the epic's sequencing —
+# see public-launch-flip-deploy), the cron won't actually fire; `workflow_dispatch` (manual)
+# still works from any branch, which is how this story's test step dry-runs it. Once merged to
+# main the daily cron activates automatically — no workflow change needed.
+#
+# Story: .pHive/epics/public-launch/stories/daily-refresh-scheduled.yaml
+#
+# Cadence: once a day. This is well within the "cohorts cycle weekly" refresh guidance in
+# docs/DATA-SOURCES.md, and each run is a single page load per network (4 automated networks
+# today + 7 portal-reachability checks) — not the kind of volume that would look like abuse to
+# any of these sites. See that story's review notes for the request-volume sanity check.
+
+on:
+  schedule:
+    # 09:13 UTC daily — a few minutes off the hour so we're not hammering every site's cron
+    # at the exact same moment every other daily job on the internet does.
+    - cron: "13 9 * * *"
+  workflow_dispatch: {} # manual trigger, for the story's "dry-run the workflow" test step
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-study-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run puller
+        id: pull
+        run: node scripts/pull-studies.mjs
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet -- data/studies.seed.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push refreshed data
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/studies.seed.json
+          git commit -m "Daily study refresh: $(date -u +%Y-%m-%d)
+
+          Automated re-pull via scripts/pull-studies.mjs (GitHub Actions cron).
+          See the workflow run summary for per-network refresh/failure detail."
+          git push origin "HEAD:${{ github.ref_name }}"
+
+      - name: No changes
+        if: steps.diff.outputs.changed == 'false'
+        run: echo "No study data changes this run — nothing to commit."
