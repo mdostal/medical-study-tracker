@@ -46,7 +46,11 @@ describe("profile-store (localStorage adapter)", () => {
 
   it("reload-persistence: save then load round-trips the exact state", () => {
     const state: PersistedState = {
-      assumptions: { ...DEFAULT_ASSUMPTIONS, home_base: "omaha", nanny_rate: 300 },
+      assumptions: {
+        ...DEFAULT_ASSUMPTIONS,
+        home_base: { city: "Omaha, NE", lat: 41.2565, lng: -95.9345 },
+        backup_care_rate_per_night: 300,
+      },
       sortKey: "downtime_rate",
     };
     savePersistedState(state);
@@ -68,7 +72,11 @@ describe("profile-store (localStorage adapter)", () => {
   it("loadPersistedState sanitizes a stored value with a malformed field", () => {
     localStorage.setItem(
       "mst.profileState.v1",
-      JSON.stringify({ assumptions: { ...DEFAULT_ASSUMPTIONS, home_base: "not-a-city" }, sortKey: "score" }),
+      // home_base as a bare number is malformed (not null/string/{city,lat,lng})
+      // -> falls back. A plain string like "not-a-city" is now VALID (any
+      // free-text city works, per generalize-profile-inputs) and would not
+      // trigger the fallback this test exercises.
+      JSON.stringify({ assumptions: { ...DEFAULT_ASSUMPTIONS, home_base: 12345 }, sortKey: "score" }),
     );
     expect(loadPersistedState()).toEqual({
       assumptions: DEFAULT_ASSUMPTIONS,

@@ -28,11 +28,16 @@ const study: Study = {
 
 const profile: Profile = { bmi: 24, weight_lb: 180, sex: "male", age: 32 };
 
+// San Antonio, TX — a real hub with real coordinates. Used across the
+// generalize-profile-inputs tests below to prove drivable() computes an
+// actual distance rather than looking up a hardcoded per-city list.
+const SAN_ANTONIO = { city: "San Antonio, TX", lat: 29.4241, lng: -98.4936 };
+const AUSTIN = { city: "Austin, TX", lat: 30.2672, lng: -97.7431 }; // ~80mi from SA -> drivable
+const SEATTLE = { city: "Seattle, WA", lat: 47.6062, lng: -122.3321 }; // ~2100mi from SA -> fly
+
 const friendMap: FriendMap = {
-  hubs: {},
-  friend_metros: [],
-  base_drive_hubs: {},
-  home_base_childcare: {},
+  hubs: { SA: SAN_ANTONIO },
+  backup_care_available: {},
 };
 
 const assumptions: Assumptions = DEFAULT_ASSUMPTIONS;
@@ -75,5 +80,108 @@ describe("scoreAll", () => {
     );
     expect(eligible.map((s) => s.id)).toContain("s1");
     expect(blocked.map((s) => s.id)).toContain("s2");
+  });
+});
+
+// story: generalize-profile-inputs — Part A: any home base, real distance.
+describe("drivable() via real distance (no austin/omaha special-casing)", () => {
+  it("classifies a nearby home base as drivable", () => {
+    const scored = scoreOne(
+      study,
+      profile,
+      { ...assumptions, home_base: AUSTIN },
+      friendMap,
+    );
+    expect(scored.drivable).toBe(true);
+    expect(scored.travel_cost).toBe(scored.trips * assumptions.drive_cost);
+  });
+
+  it("classifies a home base far from any hub (e.g. Seattle) as fly, not drivable", () => {
+    const scored = scoreOne(
+      study,
+      profile,
+      { ...assumptions, home_base: SEATTLE },
+      friendMap,
+    );
+    expect(scored.drivable).toBe(false);
+    expect(scored.travel_cost).toBe(scored.trips * assumptions.flight_cost);
+  });
+
+  it("with no home base set at all, still scores every study (conservative flight cost)", () => {
+    const scored = scoreOne(study, profile, { ...assumptions, home_base: null }, friendMap);
+    expect(scored.drivable).toBe(false);
+    expect(scored.travel_cost).toBe(scored.trips * assumptions.flight_cost);
+    expect(scored.feasibility).not.toBe("BLOCKED");
+  });
+
+  it("a plain city string with no coordinates also falls back to fly (conservative)", () => {
+    const scored = scoreOne(
+      study,
+      profile,
+      { ...assumptions, home_base: "Some Unlisted Town, ZZ" },
+      friendMap,
+    );
+    expect(scored.drivable).toBe(false);
+    expect(scored.travel_cost).toBe(scored.trips * assumptions.flight_cost);
+  });
+
+  it("scoreAll still ranks/shows every eligible study with no home base set", () => {
+    const { eligible } = scoreAll([study], profile, { ...assumptions, home_base: null }, friendMap);
+    expect(eligible).toHaveLength(1);
+  });
+});
+
+// story: generalize-profile-inputs — Part B: has_dependents_needing_care +
+// backup_care_rate_per_night, replacing the old always-on fixed-rate model.
+describe("backup-care cost (has_dependents_needing_care + backup_care_rate_per_night)", () => {
+  const longStay: Study = { ...study, stays: [10] }; // > default friend_threshold_nights (3)
+
+  it("is $0 for every study when has_dependents_needing_care is false, regardless of stay length", () => {
+    const scored = scoreOne(
+      longStay,
+      profile,
+      { ...assumptions, has_dependents_needing_care: false },
+      friendMap,
+    );
+    expect(scored.backup_care_cost).toBe(0);
+    expect(scored.backup_care_by).toBe("no-dependents");
+  });
+
+  it("uses the user's own backup_care_rate_per_night, not a hardcoded constant, when true", () => {
+    const scored = scoreOne(
+      longStay,
+      profile,
+      { ...assumptions, has_dependents_needing_care: true, backup_care_rate_per_night: 340 },
+      friendMap,
+    );
+    expect(scored.backup_care_cost).toBe(10 * 340);
+    expect(scored.backup_care_by).toBe("paid-backup-care");
+  });
+
+  it("is $0 for a stay within friend_threshold_nights even with dependents", () => {
+    const shortStay: Study = { ...study, stays: [2] };
+    const scored = scoreOne(
+      shortStay,
+      profile,
+      { ...assumptions, has_dependents_needing_care: true, backup_care_rate_per_night: 500 },
+      friendMap,
+    );
+    expect(scored.backup_care_cost).toBe(0);
+    expect(scored.backup_care_by).toBe("free-coverage");
+  });
+
+  it("is $0 for a long stay in a hub with user-stated free coverage", () => {
+    const fmWithCoverage: FriendMap = {
+      hubs: { SA: SAN_ANTONIO },
+      backup_care_available: { SA: { note: "Example: user has a contact there." } },
+    };
+    const scored = scoreOne(
+      longStay,
+      profile,
+      { ...assumptions, has_dependents_needing_care: true, backup_care_rate_per_night: 500 },
+      fmWithCoverage,
+    );
+    expect(scored.backup_care_cost).toBe(0);
+    expect(scored.backup_care_by).toBe("free-coverage");
   });
 });

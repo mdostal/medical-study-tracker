@@ -5,12 +5,12 @@ import { DEFAULT_ASSUMPTIONS, DEFAULT_SORT_KEY, type PersistedState } from "../t
 const CUSTOM_STATE: PersistedState = {
   assumptions: {
     ...DEFAULT_ASSUMPTIONS,
-    home_base: "omaha",
-    nanny_rate: 275,
+    home_base: { city: "Omaha, NE", lat: 41.2565, lng: -95.9345 },
+    backup_care_rate_per_night: 275,
     w_net: 0.5,
     w_velocity: 0.3,
     w_downtime: 0.2,
-    model_childcare: true,
+    has_dependents_needing_care: true,
   },
   sortKey: "cash_velocity",
 };
@@ -35,9 +35,12 @@ describe("share-link encode/decode round-trip", () => {
 
   it("keeps the encoded payload compact (well under any practical URL length limit)", () => {
     const encoded = encodeShareState(CUSTOM_STATE);
-    // Sanity bound, not a tight spec — the research decision's premise was
-    // "well under 300 bytes"; this catches any accidental payload bloat.
-    expect(encoded.length).toBeLessThan(400);
+    // Sanity bound, not a tight spec. Bumped from the original 400 by
+    // story: generalize-profile-inputs — home_base is now a {city, lat, lng}
+    // shape rather than a 2-value literal, which adds real bytes; still
+    // nowhere near a practical URL-length limit (browsers/servers
+    // comfortably handle several KB).
+    expect(encoded.length).toBeLessThan(600);
   });
 });
 

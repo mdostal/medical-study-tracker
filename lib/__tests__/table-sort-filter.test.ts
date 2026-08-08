@@ -21,9 +21,7 @@ import { DEFAULT_STATUS, type StudyStatus } from "../local-status-store";
 const profile: Profile = { bmi: 24, weight_lb: 180, sex: "male", age: 32 };
 const friendMap: FriendMap = {
   hubs: {},
-  friend_metros: [],
-  base_drive_hubs: { austin: ["SA"] }, // SA is drivable from austin
-  home_base_childcare: {},
+  backup_care_available: {},
 };
 const assumptions: Assumptions = DEFAULT_ASSUMPTIONS;
 

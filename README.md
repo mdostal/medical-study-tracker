@@ -12,11 +12,12 @@ childcare can net less than a $6.6k study a friend lives 20 minutes from. This t
 Those sites sort by gross pay and hide the eligibility gate until you've wasted a screening trip.
 This one models the **real** decision:
 
-- **Net cash kept** = gross − travel − childcare (using *your* base city, friend map, and nanny rate)
+- **Net cash kept** = gross − travel − backup care (using *your* home base, backup-care coverage map,
+  and your own backup-care rate)
 - **Cash velocity** = net ÷ days-until-actually-paid (the "$30k-in-6-months vs $15k-in-1-month" judge)
 - **Downtime rate** = net ÷ total days of life committed (confinement + follow-up tail)
-- **Feasibility gate** = can childcare actually be arranged for this stay, in this city, given the
-  user's circumstances? (friend-city / nanny-housesit / blocked)
+- **Feasibility gate** = is the stay short enough to be easy, given the user's own away-time tolerance?
+  (short stay / doable with paid backup care / too long — blocked)
 - **Eligibility gate** = BMI, age, sex, smoker, special-population — filters out what you can't get
   before it wastes your time.
 
@@ -56,7 +57,7 @@ docs/
 data/
   studies.seed.json      confirmed enrolling studies (the base list)
   networks.json          the CRO network directory (verified + pending)
-  friend-childcare-map.json   owner's friend cities → childcare likelihood → nearby study hubs
+  friend-childcare-map.json   study hub coordinates + user-stated free backup-care coverage per hub
 lib/
   types.ts               the schema (Study, Network, ScoreInputs, ScoredStudy)
   scoring.ts             reference implementation of the SCORING.md algorithm — framework-free,

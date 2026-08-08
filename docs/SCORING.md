@@ -3,9 +3,9 @@
 This is the core of the tool. Everything else is plumbing. The reference implementation lives in
 `lib/scoring.ts`; this doc is the spec it must match.
 
-The engine takes a set of studies + a set of **user assumptions** (base city, nanny rate, travel
-costs, friend map, and dimension weights) and returns each study scored + ranked, with an eligibility
-gate and a childcare-feasibility gate applied.
+The engine takes a set of studies + a set of **user assumptions** (home base, backup-care rate, travel
+costs, friend/backup-care map, and dimension weights) and returns each study scored + ranked, with an
+eligibility gate and a stay-length feasibility gate applied.
 
 ---
 
@@ -31,12 +31,13 @@ it, flagged "confirm BMI on call." Most healthy-volunteer floors are 18–18.5.
 
 | Input | Default | Meaning |
 |---|---|---|
-| `home_base` | `austin` | `austin` or `omaha` (example base-city options). Sets drive-vs-fly per city. |
-| `nanny_rate` | `200` | $/night for a hired nanny/house-sitter on stays no friend can cover |
+| `home_base` | `null` | any city — a free string, or `{city, lat, lng}` picked from the typeahead (`lib/us-cities.ts`). `null` = not set; every study still ranks, travel cost conservatively assumes a flight. Sets drive-vs-fly per hub via real haversine distance (~250mi threshold), not a hardcoded per-city lookup. |
+| `has_dependents_needing_care` | `false` | does the visitor have dependents (kids, pets, elder care, etc.) needing coverage while away? `false` = $0 backup-care cost, unconditionally. |
+| `backup_care_rate_per_night` | `200` | $/night the visitor estimates for paid backup care on stays no friend/free-coverage hub can cover — user-entered, not a fixed constant |
 | `flight_cost` | `350` | round-trip airfare per trip to a non-drivable city |
 | `drive_cost` | `70` | round-trip gas per trip to a drivable city (< ~4 hr) |
-| `friend_threshold_nights` | `3` | a stay ≤ this many nights is coverable by a local friend for ~free even without a dedicated childcare friend in that city |
-| `max_away_nights` | `31` | the user's willingness to be away up to ~a month IF a nanny house-sit makes financial sense; longer single stays get a hard feasibility penalty |
+| `friend_threshold_nights` | `3` | a stay ≤ this many nights is coverable by a local friend for ~free even without a dedicated backup-care contact in that city |
+| `max_away_nights` | `31` | the user's willingness to be away up to ~a month IF paid backup care makes financial sense; longer single stays get a hard feasibility penalty |
 | `w_net` | `0.35` | weight on raw net cash kept |
 | `w_velocity` | `0.45` | weight on cash speed (raise this if speed-to-cash matters most to the user) |
 | `w_downtime` | `0.20` | weight on life-downtime efficiency |
@@ -59,24 +60,31 @@ inpatient_nights = sum(stays)
 trips            = stays.length + visits           // each stay and each in-person visit is a journey
 ```
 
-**Childcare cost** — ⚠ **NEVER guessed.** The tool must not infer who can provide childcare coverage
-in which city, and ranking must not depend on it. Default `childcare_cost = 0` — the user weighs
-coverage per study themselves. Only if the user explicitly turns on `model_childcare` does it apply a
-flat estimate:
+**Backup-care cost** — ⚠ **NEVER guessed.** Default `backup_care_cost = 0` for every visitor,
+unconditionally, unless they've told us (`has_dependents_needing_care = true`) that they have
+dependents (kids, pets, elder care, etc.) needing coverage while away:
 ```
-childcare_cost = model_childcare
-  ? sum(n * nanny_rate for each stay of n nights where n > friend_threshold_nights)
-  : 0
+backup_care_cost = !has_dependents_needing_care
+  ? 0
+  : sum(
+      n * backup_care_rate_per_night
+      for each stay of n nights
+      where n > friend_threshold_nights AND hub has no user-stated free coverage
+    )
 ```
-No per-city / friend-map assumptions of any kind. (An earlier version invented per-city "likely/maybe"
-coverage and ranked on it — that was wrong and is removed. See data/friend-childcare-map.json.)
+`backup_care_rate_per_night` is a user-entered estimate, not a fixed constant. Free coverage per hub
+(`data/friend-childcare-map.json`'s `backup_care_available`) is only ever set from something the user
+themselves stated — never inferred/guessed from a per-city model.
 
 **Travel cost**
 ```
-drivable      = friend_map.drivable_from(home_base, city)   // < ~4 hr
+drivable      = home_base has coordinates AND haversine(home_base, hub) <= ~250 miles (~4hr drive)
 per_trip      = drivable ? drive_cost : flight_cost
 travel_cost   = trips * per_trip
 ```
+No home base set (or one with no resolvable coordinates) always resolves `drivable = false` — every
+study still ranks, travel cost conservatively assumes a flight for every trip. No city name (e.g. any
+particular home base) is special-cased in this calculation.
 
 **Payout timeline (the new dimension)** — when the user actually has ALL the cash:
 ```
@@ -104,7 +112,7 @@ downtime_days = inpatient_nights + followups.window_weeks*7*0.15
 ## 3. The three headline metrics
 
 ```
-net_cash      = pay - travel_cost - childcare_cost           // what the user keeps
+net_cash      = pay - travel_cost - backup_care_cost         // what the user keeps
 cash_velocity = net_cash / max(settle_days, 1) * 30          // net $ per 30 days until paid  ← the $30k-6mo vs $15k-1mo judge
 downtime_rate = net_cash / max(downtime_days, 1)             // net $ per day of life committed
 eff_per_night = net_cash / max(inpatient_nights, 1)          // net $ per inpatient night (secondary)
@@ -117,16 +125,21 @@ goal, that's correct.
 
 ---
 
-## 4. Feasibility gate (childcare reality → multiplier)
+## 4. Feasibility gate (stay length → multiplier)
+
+Reflects stay LENGTH only — it does not judge whether the visitor has backup care in a city; that's
+never inferred, only ever the user's own call (see §2's backup-care cost).
 
 ```
 max_stay = max(stays)
-if any stay's city has a childcare-friend OR max_stay <= friend_threshold_nights:
-    feasibility = 'EASY'      ; mult = 1.00
-else if max_stay <= max_away_nights AND (net_cash after nanny) > 0 comfortably:
-    feasibility = 'MODERATE'  ; mult = 0.85    // nanny house-sit, funded by payout, "makes sense"
+if !eligible:
+    feasibility = 'BLOCKED'   ; mult = 0.00
+else if max_stay <= friend_threshold_nights:
+    feasibility = 'EASY'      ; mult = 1.00    // short = easy to cover
+else if max_stay <= 9:
+    feasibility = 'MODERATE'  ; mult = 0.85
 else if max_stay <= max_away_nights:
-    feasibility = 'HARD'      ; mult = 0.60    // doable but the nanny eats most of the gain
+    feasibility = 'HARD'      ; mult = 0.60    // long single stay, doable but backup care eats most of the gain
 else:
     feasibility = 'BLOCKED'   ; mult = 0.00    // single stay longer than the user can be away
 ```

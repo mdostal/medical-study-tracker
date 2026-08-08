@@ -5,7 +5,6 @@ export type PayoutType = "lump_end" | "prorated" | "milestone" | "unknown";
 export type Sex = "M/F" | "male" | "female";
 export type Smoker = "non" | "any" | "smoker-only";
 export type Feasibility = "EASY" | "MODERATE" | "HARD" | "BLOCKED";
-export type CanTake = "yes" | "likely" | "maybe" | "no";
 
 export interface Payout {
   type: PayoutType;
@@ -62,29 +61,58 @@ export interface Profile {
   conditions?: string[];   // e.g. high cholesterol -> satisfies high_cholesterol_required
 }
 
-export interface FriendMetro {
-  metro: string;
-  covers_hubs: string[];
-  childcare_available: CanTake;
-  has_kids?: boolean | null;
-  notes?: string;
+// A named point (city center, approximately) used to compute a real
+// drive-vs-fly distance in lib/scoring.ts. Not tied to any particular city —
+// any visitor's home base, or any travel hub, can be one of these.
+export interface GeoPoint {
+  city: string;
+  lat: number;
+  lng: number;
+}
+
+// story: generalize-profile-inputs — Assumptions.home_base used to be a
+// literal "austin" | "omaha" union with hardcoded per-city lookup tables in
+// lib/scoring.ts. It's now any city: a plain free-text name (no
+// coordinates — drivable() can't compute a distance for it, so travel cost
+// conservatively falls back to flight_cost) or a {city, lat, lng} shape
+// (chosen from the home-base typeahead in components/profile-panel.tsx,
+// backed by lib/us-cities.ts) that lets drivable() compute a real distance
+// against a real threshold. `null` = no home base set at all — the tool
+// still ranks/shows every eligible study nationally, it just can't tell
+// drivable from fly-only without a base point, so it conservatively assumes
+// every trip is a flight. No city name has any special-cased meaning
+// anywhere in this type or in lib/scoring.ts.
+export type HomeBase = GeoPoint | string | null;
+
+// A hub with user-confirmed free backup-care coverage (e.g. a friend or
+// family member in that metro who has actually offered to help while the
+// visitor is away). NEVER guessed/inferred by this app — only ever
+// populated from something the user themselves stated. See
+// data/friend-childcare-map.json's own header comment for the full rule.
+export interface BackupCareHub {
+  note?: string;
 }
 
 export interface FriendMap {
-  hubs: Record<string, string>;
-  friend_metros: FriendMetro[];
-  base_drive_hubs: Record<string, string[]>;
-  home_base_childcare: Record<string, { childcare_available: CanTake; notes?: string }>;
+  hubs: Record<string, GeoPoint>;
+  backup_care_available: Record<string, BackupCareHub>;
 }
 
 export interface Assumptions {
-  home_base: "austin" | "omaha";
-  nanny_rate: number;
+  home_base: HomeBase;
+  // story: generalize-profile-inputs — replaces the old always-on
+  // "everyone needs childcare" assumption. Defaults to false: a single
+  // visitor with no dependents pays $0 backup-care cost, unconditionally,
+  // and never sees the backup-care rate/coverage UI at all.
+  has_dependents_needing_care: boolean;
+  // User-entered estimate of their own backup-care cost per night of
+  // downtime (childcare, pet-sitting, elder care, etc.) — was a hardcoded
+  // $200/night constant; now a Profile input like any other.
+  backup_care_rate_per_night: number;
   flight_cost: number;
   drive_cost: number;
   friend_threshold_nights: number;
   max_away_nights: number;
-  model_childcare: boolean; // OFF by default — childcare is the user's call, never guessed from friends
   w_net: number;
   w_velocity: number;
   w_downtime: number;
@@ -98,8 +126,8 @@ export interface ScoredStudy extends Study {
   trips: number;
   drivable: boolean;
   travel_cost: number;
-  childcare_cost: number;
-  childcare_by: "nanny" | "user-decides";
+  backup_care_cost: number;
+  backup_care_by: "paid-backup-care" | "free-coverage" | "no-dependents";
   net_cash: number;
   settle_days: number;
   payout_unconfirmed: boolean;
@@ -113,13 +141,13 @@ export interface ScoredStudy extends Study {
 }
 
 export const DEFAULT_ASSUMPTIONS: Assumptions = {
-  home_base: "austin",
-  nanny_rate: 200,
+  home_base: null,
+  has_dependents_needing_care: false,
+  backup_care_rate_per_night: 200,
   flight_cost: 350,
   drive_cost: 70,
   friend_threshold_nights: 3,
   max_away_nights: 31,
-  model_childcare: false,
   w_net: 0.35,
   w_velocity: 0.45,
   w_downtime: 0.20,
@@ -175,20 +203,41 @@ function isSortKey(value: unknown): value is SortKey {
   return typeof value === "string" && (SORT_KEYS as readonly string[]).includes(value);
 }
 
+function isGeoPoint(v: unknown): v is GeoPoint {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.city === "string" &&
+    typeof o.lat === "number" && Number.isFinite(o.lat) &&
+    typeof o.lng === "number" && Number.isFinite(o.lng)
+  );
+}
+
+// Any city is valid — a free string, a {city, lat, lng} shape, or null
+// (no home base set). No city name gets special-cased; anything else
+// (wrong type, malformed object) falls back to the default (null).
+function sanitizeHomeBase(v: unknown): HomeBase {
+  if (v === null || typeof v === "string") return v;
+  if (isGeoPoint(v)) return { city: v.city, lat: v.lat, lng: v.lng };
+  return DEFAULT_ASSUMPTIONS.home_base;
+}
+
 function sanitizeAssumptions(input: unknown): Assumptions {
   const src = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
   const num = (v: unknown, fallback: number) =>
     typeof v === "number" && Number.isFinite(v) ? v : fallback;
   const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
-  const rawHomeBase = src.home_base;
-  const home_base =
-    rawHomeBase === "austin" || rawHomeBase === "omaha"
-      ? rawHomeBase
-      : DEFAULT_ASSUMPTIONS.home_base;
 
   return {
-    home_base,
-    nanny_rate: num(src.nanny_rate, DEFAULT_ASSUMPTIONS.nanny_rate),
+    home_base: sanitizeHomeBase(src.home_base),
+    has_dependents_needing_care: bool(
+      src.has_dependents_needing_care,
+      DEFAULT_ASSUMPTIONS.has_dependents_needing_care,
+    ),
+    backup_care_rate_per_night: num(
+      src.backup_care_rate_per_night,
+      DEFAULT_ASSUMPTIONS.backup_care_rate_per_night,
+    ),
     flight_cost: num(src.flight_cost, DEFAULT_ASSUMPTIONS.flight_cost),
     drive_cost: num(src.drive_cost, DEFAULT_ASSUMPTIONS.drive_cost),
     friend_threshold_nights: num(
@@ -196,7 +245,6 @@ function sanitizeAssumptions(input: unknown): Assumptions {
       DEFAULT_ASSUMPTIONS.friend_threshold_nights,
     ),
     max_away_nights: num(src.max_away_nights, DEFAULT_ASSUMPTIONS.max_away_nights),
-    model_childcare: bool(src.model_childcare, DEFAULT_ASSUMPTIONS.model_childcare),
     w_net: num(src.w_net, DEFAULT_ASSUMPTIONS.w_net),
     w_velocity: num(src.w_velocity, DEFAULT_ASSUMPTIONS.w_velocity),
     w_downtime: num(src.w_downtime, DEFAULT_ASSUMPTIONS.w_downtime),

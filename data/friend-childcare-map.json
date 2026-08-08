@@ -1,17 +1,23 @@
 {
-  "_comment": "DO NOT GUESS. Childcare / friend coverage is set ONLY by the user, per study — never inferred by a model. An earlier version INVENTED per-city likelihoods (e.g. 'San Diego: likely', 'Phoenix: likely') and let them rank studies. That was wrong and is removed. This file ships as ANONYMIZED EXAMPLE data only — generic city + coverage note, never a real friend's name or identifying detail. A national city list can justify listing studies nationwide (a user may be willing to travel) without that being a childcare confirmation. Default every location to UNKNOWN; the user decides coverage study-by-study.",
-  "rule": "Never assign childcare coverage from a model. Only the user sets it. Ranking MUST NOT depend on guessed childcare — rank on pay, nights, drive-vs-fly, payout timing, eligibility.",
-  "user_stated_coverage": [
-    { "metro": "Salt Lake City, UT", "note": "Example: user has friends there who could provide childcare coverage." },
-    { "metro": "San Antonio, TX", "note": "Example: metro is a short drive from the user's home base and they have contacts there who offered to help for a weekend stay. Nothing beyond that is confirmed." },
-    { "metro": "Las Vegas, NV", "note": "Example: user has contacts in this metro." }
-  ],
-  "national_cities_FOR_LISTING_ONLY": ["San Diego", "Mesa", "Phoenix", "Philadelphia", "New York", "Atlanta", "Wisconsin", "Omaha", "DFW"],
-  "national_note": "Example cities a user might name to justify listing studies nationwide. These are NOT childcare confirmations — coverage is never assumed from this list. Do not mark coverage for them.",
-  "base_drive_hubs": { "austin": ["SA", "DFW"], "omaha": ["LINC", "LEN"] },
-  "home_base": {
-    "lives": "Austin, TX (example)",
-    "drive_hubs_austin": ["San Antonio (~1.5 hr)", "Dallas (~3 hr)"],
-    "drive_hubs_omaha_future": ["Lincoln NE (~1 hr)", "Overland Park KS (~3 hr)"]
+  "_comment": "DO NOT GUESS. Backup-care coverage (childcare, pet-sitting, elder care, or any other dependent coverage) is set ONLY by the user, per hub — never inferred by a model. An earlier version INVENTED per-city likelihoods (e.g. 'San Diego: likely', 'Phoenix: likely') and let them rank studies. That was wrong and is removed. This file ships as ANONYMIZED EXAMPLE data only — generic city + coverage note, never a real friend's name or identifying detail. Default every hub to no free coverage; the user decides study-by-study whether has_dependents_needing_care even applies to them (lib/types.ts's Assumptions.has_dependents_needing_care), and free coverage below is only ever used when they've turned that on.",
+  "rule": "Never assign backup-care coverage from a model. Only the user sets it (backup_care_available, below, is user-stated example data, not a guess). Ranking MUST NOT depend on guessed coverage — rank on pay, nights, drive-vs-fly, payout timing, eligibility. home_base is any city the visitor enters (lib/types.ts's HomeBase) — 'austin'/'omaha' are not special-cased anywhere; drivable-vs-fly is computed from the coordinates below via lib/scoring.ts's haversine distance check, not a hardcoded per-city hub list.",
+  "hubs": {
+    "AUS": { "city": "Austin, TX", "lat": 30.2672, "lng": -97.7431 },
+    "DFW": { "city": "Dallas, TX", "lat": 32.7767, "lng": -96.797 },
+    "FL": { "city": "Daytona Beach, FL", "lat": 29.2108, "lng": -81.0228 },
+    "LEN": { "city": "Lenexa, KS", "lat": 38.9536, "lng": -94.7336 },
+    "LINC": { "city": "Lincoln, NE", "lat": 40.8136, "lng": -96.7026 },
+    "MSP": { "city": "Minneapolis, MN", "lat": 44.9778, "lng": -93.265 },
+    "MTL": { "city": "Montreal, QC", "lat": 45.5019, "lng": -73.5674 },
+    "NJ": { "city": "Secaucus, NJ", "lat": 40.7895, "lng": -74.0565 },
+    "SA": { "city": "San Antonio, TX", "lat": 29.4241, "lng": -98.4936 },
+    "SLC": { "city": "Salt Lake City, UT", "lat": 40.7608, "lng": -111.891 },
+    "SOCAL": { "city": "Cypress, CA", "lat": 33.8166, "lng": -118.0373 },
+    "TOR": { "city": "Toronto, ON", "lat": 43.6532, "lng": -79.3832 },
+    "WI": { "city": "Madison, WI", "lat": 43.0731, "lng": -89.4012 }
+  },
+  "backup_care_available": {
+    "SLC": { "note": "Example: user has friends there who could provide backup-care coverage (childcare or otherwise)." },
+    "SA": { "note": "Example: hub is a short drive from an example home base and the user has contacts there who offered to help for a weekend stay. Nothing beyond that is confirmed." }
   }
 }

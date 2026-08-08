@@ -2,11 +2,34 @@
 // The hive can import this directly as the engine; the UI is a thin shell over scoreAll().
 
 import type {
-  Study, Profile, FriendMap, Assumptions, ScoredStudy, Feasibility,
+  Study, Profile, FriendMap, Assumptions, ScoredStudy, Feasibility, HomeBase, GeoPoint,
 } from "./types";
 
 const MAD_DEFAULT_NIGHTS = 21;   // fallback when a MAD study hides its night count
 const STAY_DEFAULT_NIGHTS = 8;   // fallback for a null-stay non-MAD study
+
+// story: generalize-profile-inputs — "drivable" used to be a hardcoded
+// per-city hub lookup keyed on the literal strings "austin"/"omaha". It's
+// now a real distance check: any home base with coordinates is drivable
+// from any hub with coordinates if they're within DRIVABLE_MILES of each
+// other (~250 miles, roughly a 4hr drive) — no city name is special-cased.
+const DRIVABLE_MILES = 250;
+const EARTH_RADIUS_MILES = 3958.8;
+
+function toRadians(deg: number): number {
+  return (deg * Math.PI) / 180;
+}
+
+/** Great-circle distance between two lat/lng points, in miles. */
+function haversineMiles(a: GeoPoint, b: GeoPoint): number {
+  const dLat = toRadians(b.lat - a.lat);
+  const dLng = toRadians(b.lng - a.lng);
+  const lat1 = toRadians(a.lat);
+  const lat2 = toRadians(b.lat);
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_MILES * Math.asin(Math.min(1, Math.sqrt(h)));
+}
 
 // ---- eligibility gate -------------------------------------------------------
 export function isEligible(s: Study, p: Profile): { ok: boolean; reason?: string } {
@@ -23,9 +46,40 @@ export function isEligible(s: Study, p: Profile): { ok: boolean; reason?: string
   return { ok: true };
 }
 
-// ---- childcare / travel helpers --------------------------------------------
-function drivable(hub: string, base: string, fm: FriendMap): boolean {
-  return (fm.base_drive_hubs[base] || []).includes(hub);
+// ---- travel helpers ----------------------------------------------------------
+// No home base set at all, or a home base with no coordinates (a plain
+// typed-in city name that isn't in the typeahead dataset) -> we can't
+// compute a distance, so this conservatively returns false (fly), never
+// true. A visitor is never blocked from seeing every study either way —
+// this only affects the travel_cost estimate.
+function drivable(hub: string, base: HomeBase, fm: FriendMap): boolean {
+  if (!base || typeof base === "string") return false;
+  const hubLocation = fm.hubs[hub];
+  if (!hubLocation) return false;
+  return haversineMiles(base, hubLocation) <= DRIVABLE_MILES;
+}
+
+// ---- backup-care cost --------------------------------------------------------
+// story: generalize-profile-inputs — replaces the old flat "everyone needs
+// $200/night of paid childcare" model. $0 unconditionally unless the visitor has told
+// us (Assumptions.has_dependents_needing_care) that they have dependents
+// needing coverage while away. Even then, a stay is free if it's short
+// enough for a friend/family member to cover (friend_threshold_nights) OR
+// the study's hub has user-stated free coverage (fm.backup_care_available)
+// — never guessed. Anything else costs the user's own entered rate
+// (backup_care_rate_per_night), not a hardcoded constant.
+function backupCareCost(
+  stays: number[], hub: string, a: Assumptions, fm: FriendMap,
+): { cost: number; by: ScoredStudy["backup_care_by"] } {
+  if (!a.has_dependents_needing_care) return { cost: 0, by: "no-dependents" };
+
+  const hasFreeCoverage = Boolean(fm.backup_care_available[hub]);
+  let cost = 0;
+  for (const n of stays) {
+    if (n <= a.friend_threshold_nights || hasFreeCoverage) continue;
+    cost += n * a.backup_care_rate_per_night;
+  }
+  return { cost, by: cost > 0 ? "paid-backup-care" : "free-coverage" };
 }
 
 // ---- core derivation --------------------------------------------------------
@@ -57,15 +111,8 @@ export function scoreOne(
   if (s.travel_stipend_per_visit) travel_cost -= s.travel_stipend_per_visit * visits;
   if (travel_cost < 0) travel_cost = 0;
 
-  // childcare: NEVER guessed from any friend map — the user decides coverage per study.
-  // Not modeled by default. If a.model_childcare is on, apply a flat nanny estimate for
-  // stays longer than the threshold (no per-city friend assumptions of any kind).
-  let childcare_cost = 0;
-  let nannyNights = 0;
-  if (a.model_childcare) {
-    for (const n of stays) if (n > a.friend_threshold_nights) { nannyNights += n; childcare_cost += n * a.nanny_rate; }
-  }
-  const childcare_by: ScoredStudy["childcare_by"] = nannyNights > 0 ? "nanny" : "user-decides";
+  // backup care (childcare, pet-sitting, elder care, etc.)
+  const { cost: backup_care_cost, by: backup_care_by } = backupCareCost(stays, s.hub, a, fm);
 
   // payout timing
   let settle_days = s.payout.settle_days ?? 0;
@@ -82,7 +129,7 @@ export function scoreOne(
   const tailWeeks = s.followup_weeks ?? visits; // ~1 visit/week if unknown
   const downtime_days = inpatient_nights + tailWeeks * 7 * 0.15;
 
-  const net_cash = pay_usd - travel_cost - childcare_cost;
+  const net_cash = pay_usd - travel_cost - backup_care_cost;
   const cash_velocity = (net_cash / Math.max(settle_days, 1)) * 30;
   const downtime_rate = net_cash / Math.max(downtime_days, 1);
   const eff_per_night = net_cash / Math.max(inpatient_nights, 1);
@@ -95,8 +142,8 @@ export function scoreOne(
   else if (maxStay <= 9) feasibility = "MODERATE";
   else if (maxStay <= a.max_away_nights) feasibility = "HARD";           // long single stay
   else feasibility = "BLOCKED";                                          // longer than he can be away
-  // NOTE: feasibility reflects stay LENGTH only. It does NOT judge whether he has childcare in a city —
-  // that's the user's call, never inferred.
+  // NOTE: feasibility reflects stay LENGTH only. It does NOT judge whether the visitor has
+  // backup care in a city — that's the user's call, never inferred.
 
   // per-study flags
   if (s.bmi_min == null && s.bmi_max == null) flags.push("confirm BMI on call");
@@ -106,7 +153,7 @@ export function scoreOne(
   return {
     ...s,
     pay_usd, inpatient_nights, nights_estimated, trips, drivable: isDrive,
-    travel_cost, childcare_cost, childcare_by, net_cash, settle_days, payout_unconfirmed,
+    travel_cost, backup_care_cost, backup_care_by, net_cash, settle_days, payout_unconfirmed,
     cash_velocity, downtime_days, downtime_rate, eff_per_night,
     feasibility, score: 0, flags,
   };

@@ -32,21 +32,28 @@ const DEMO_PROFILE: Profile = {
   conditions: [],
 };
 
-// Only base_drive_hubs is real, non-guessed data (which hubs are a drivable
-// trip from each example home base) — pulled straight from
-// data/friend-childcare-map.json. Per-city childcare coverage is
-// deliberately NEVER modeled from a map (see that file's own _comment and
-// docs/SCORING.md §"Childcare cost"); lib/scoring.ts only ever derives
-// childcare_cost from the user-controlled model_childcare + nanny_rate +
-// friend_threshold_nights assumptions, never from a per-city guess. The
-// remaining FriendMap fields aren't read by lib/scoring.ts today, so they
-// stay structurally valid but empty rather than fabricated.
+// Hub coordinates (for lib/scoring.ts's real drivable-vs-fly distance
+// check) and user-stated free backup-care coverage — both pulled straight
+// from data/friend-childcare-map.json, itself real non-guessed data (see
+// that file's own _comment). Backup-care coverage is deliberately NEVER
+// modeled/guessed from a map; lib/scoring.ts only ever derives
+// backup_care_cost from the user-controlled has_dependents_needing_care +
+// backup_care_rate_per_night + friend_threshold_nights assumptions, plus
+// this explicitly user-stated hub list — never a per-city guess.
 const FRIEND_MAP: FriendMap = {
-  hubs: {},
-  friend_metros: [],
-  base_drive_hubs: friendChildcareMap.base_drive_hubs as Record<string, string[]>,
-  home_base_childcare: {},
+  hubs: friendChildcareMap.hubs as FriendMap["hubs"],
+  backup_care_available: friendChildcareMap.backup_care_available as FriendMap["backup_care_available"],
 };
+
+// Read-only "which hubs have free backup-care coverage" list for the
+// Profile panel (only ever shown once the visitor turns on
+// has_dependents_needing_care) — joins the two static maps above once,
+// rather than re-deriving it inside the component on every render.
+const BACKUP_CARE_HUBS = Object.entries(FRIEND_MAP.backup_care_available).map(([hub, info]) => ({
+  hub,
+  city: FRIEND_MAP.hubs[hub]?.city ?? hub,
+  note: info.note,
+}));
 
 export default function Home() {
   const [assumptions, setAssumptions] = useState<Assumptions>(DEFAULT_ASSUMPTIONS);
@@ -114,7 +121,8 @@ export default function Home() {
           <span className="font-medium text-foreground">
             what you actually keep
           </span>{" "}
-          — pay minus travel minus childcare, using your own assumptions
+          — pay minus travel minus backup care (childcare, pet-sitting, elder
+          care, or whatever coverage you need), using your own assumptions
           below. Change the knobs and the ranking re-sorts instantly. This
           tool works fully anonymously: nothing you enter here is sent to a
           server, there is no sign-in of any kind, and everything runs
@@ -143,6 +151,7 @@ export default function Home() {
             setAssumptions(DEFAULT_ASSUMPTIONS);
             setSortKey(DEFAULT_SORT_KEY);
           }}
+          backupCareHubs={BACKUP_CARE_HUBS}
         />
 
         <div className="flex justify-end">

@@ -212,12 +212,14 @@ const COLUMN_RENDER: Record<ColumnId, ColumnRenderer> = {
   childcare: {
     align: "right",
     render: (s) =>
-      s.childcare_cost > 0 ? (
+      s.backup_care_by === "paid-backup-care" ? (
         <>
-          {fmtUSD(s.childcare_cost)} <span className="text-muted-foreground">· nanny</span>
+          {fmtUSD(s.backup_care_cost)} <span className="text-muted-foreground">· backup care</span>
         </>
+      ) : s.backup_care_by === "free-coverage" ? (
+        <span className="text-muted-foreground">free coverage</span>
       ) : (
-        <span className="text-muted-foreground">you decide</span>
+        <span className="text-muted-foreground">no dependents</span>
       ),
   },
   net_cash: {

@@ -33,29 +33,41 @@ describe("sanitizePersistedState", () => {
     const valid = {
       assumptions: {
         ...DEFAULT_ASSUMPTIONS,
-        home_base: "omaha" as const,
-        nanny_rate: 250,
+        home_base: { city: "Omaha, NE", lat: 41.2565, lng: -95.9345 },
+        backup_care_rate_per_night: 250,
         w_net: 0.5,
-        model_childcare: true,
+        has_dependents_needing_care: true,
       },
       sortKey: "net_cash" as const,
     };
     expect(sanitizePersistedState(valid)).toEqual(valid);
   });
 
+  // story: generalize-profile-inputs — any city is now valid, including a
+  // plain free-text string with no coordinates (e.g. "seattle"); it's no
+  // longer restricted to a 2-value literal union.
+  it("accepts any home_base city (free string or {city,lat,lng}), never falls back for a valid shape", () => {
+    const result = sanitizePersistedState({
+      assumptions: { ...DEFAULT_ASSUMPTIONS, home_base: "seattle" },
+    });
+    expect(result.assumptions.home_base).toBe("seattle");
+  });
+
   it("defaults individual malformed Assumptions fields without discarding the rest", () => {
     const result = sanitizePersistedState({
       assumptions: {
         ...DEFAULT_ASSUMPTIONS,
-        home_base: "seattle", // not a valid literal -> falls back
-        nanny_rate: "two hundred", // wrong type -> falls back
+        home_base: { city: "Nowhere", lat: "not-a-number" }, // malformed shape -> falls back
+        backup_care_rate_per_night: "two hundred", // wrong type -> falls back
         w_velocity: 0.9, // valid -> kept
       },
       sortKey: "not-a-real-sort-key",
     });
 
     expect(result.assumptions.home_base).toBe(DEFAULT_ASSUMPTIONS.home_base);
-    expect(result.assumptions.nanny_rate).toBe(DEFAULT_ASSUMPTIONS.nanny_rate);
+    expect(result.assumptions.backup_care_rate_per_night).toBe(
+      DEFAULT_ASSUMPTIONS.backup_care_rate_per_night,
+    );
     expect(result.assumptions.w_velocity).toBe(0.9);
     expect(result.sortKey).toBe(DEFAULT_SORT_KEY);
   });
