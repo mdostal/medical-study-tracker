@@ -24,6 +24,9 @@ coverage/
 # supabase local
 .supabase/
 
+# local Playwright MCP test artifacts (screenshots/snapshots from dev-time UI verification)
+.playwright-mcp/
+
 # personal / do-not-publish
 # (friend map is anonymized city-only by design; keep it in-repo. Never add friends' names/details.)
 .local/
