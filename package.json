@@ -1,0 +1,18 @@
+{
+  "name": "medical-study-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Decision engine for paid clinical-trial participation, ranked by net cash kept, cash velocity, and downtime — with a childcare-by-friend-city and payout-timing model.",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest run"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {},
+  "devDependencies": {},
+  "_hive_notes": "Phase-1 build target: Next.js 15 (App Router) + TypeScript + Tailwind + shadcn/ui, Supabase (Postgres + RLS) for multi-user later. lib/scoring.ts is the framework-free engine — wire the UI to scoreAll(). Seed from data/*.json. prototype/net-value-model.html is the working reference. Add deps at scaffold time (next, react, tailwindcss, @supabase/supabase-js, vitest). Mirror personal-drone repo conventions."
+}

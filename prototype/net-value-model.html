@@ -1,0 +1,200 @@
+<title>Clinical study tracker — net-value model</title>
+<style>
+:root{--bg:#0e0f13;--panel:#16181e;--panel2:#1c1f27;--ink:#eef0f4;--soft:#a7aebb;--faint:#6b7280;--line:#262a33;--accent:#e0854a;--go:#5fae7a;--warn:#d9a441;--bad:#d9694a;--slc:#6ea8d8;--mono:ui-monospace,Menlo,monospace;--sans:ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif;}
+:root[data-theme="light"]{--bg:#f5f2ec;--panel:#fff;--panel2:#f0ebe1;--ink:#1a1c22;--soft:#565b66;--faint:#8b8578;--line:#e6e1d7;--accent:#b5591f;--go:#3f7d54;--warn:#a9781a;--bad:#b8482c;--slc:#3a6ea5;}
+@media(prefers-color-scheme:light){:root{--bg:#f5f2ec;--panel:#fff;--panel2:#f0ebe1;--ink:#1a1c22;--soft:#565b66;--faint:#8b8578;--line:#e6e1d7;--accent:#b5591f;--go:#3f7d54;--warn:#a9781a;--bad:#b8482c;--slc:#3a6ea5;}}
+*{box-sizing:border-box;}body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;}
+.wrap{max-width:1180px;margin:0 auto;padding:2rem 1.05rem 5rem;}
+h1{font-size:1.45rem;margin:0 0 .15rem;}
+.sub{color:var(--soft);font-size:.85rem;margin:0 0 1rem;max-width:70ch;}
+.prof{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 1.1rem;}
+.prof span{font-family:var(--mono);font-size:.66rem;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:.2rem .5rem;color:var(--soft);}
+.prof span b{color:var(--ink);}
+.controls{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:.9rem 1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:1.1rem;align-items:flex-end;}
+.ctl{display:flex;flex-direction:column;gap:.25rem;}
+.ctl label{font-family:var(--mono);font-size:.58rem;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);}
+.ctl input[type=number]{width:80px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--ink);padding:.3rem .45rem;font-family:var(--mono);font-size:.82rem;}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;}
+.seg button{background:var(--panel2);border:none;color:var(--soft);font-family:var(--mono);font-size:.72rem;padding:.35rem .7rem;cursor:pointer;}
+.seg button.on{background:var(--accent);color:#160f08;font-weight:700;}
+.reset{background:none;border:1px solid var(--line);color:var(--soft);border-radius:6px;padding:.35rem .6rem;font-size:.72rem;cursor:pointer;font-family:var(--mono);}
+h2{font-size:.8rem;font-family:var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:1.7rem 0 .6rem;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:.3rem;margin-bottom:.6rem;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:.78rem;min-width:1080px;}
+th,td{text-align:left;padding:.45rem .55rem;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;}
+th{font-family:var(--mono);font-size:.58rem;text-transform:uppercase;letter-spacing:.03em;color:var(--faint);font-weight:600;}
+th.srt{cursor:pointer;}th.srt:hover{color:var(--ink);}th.active{color:var(--accent);}
+td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;}
+td.net{font-family:var(--mono);font-weight:700;font-variant-numeric:tabular-nums;text-align:right;color:var(--go);}
+tr.top td{background:color-mix(in srgb,var(--go) 9%,transparent);}
+a.study{color:var(--accent);font-weight:600;text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent);}
+a.study:hover{border-bottom-color:var(--accent);}
+a.apply{font-family:var(--mono);font-size:.6rem;color:var(--go);text-decoration:none;border:1px solid color-mix(in srgb,var(--go) 45%,transparent);border-radius:4px;padding:.1rem .38rem;}
+a.apply:hover{background:color-mix(in srgb,var(--go) 15%,transparent);}
+.loc{font-family:var(--mono);font-size:.6rem;padding:.1rem .4rem;border-radius:4px;background:var(--panel2);color:var(--soft);}
+.loc.slc{color:var(--slc);background:color-mix(in srgb,var(--slc) 15%,transparent);font-weight:700;}
+.fz{font-family:var(--mono);font-size:.56rem;font-weight:700;padding:.12rem .42rem;border-radius:4px;}
+.fz.easy{color:var(--go);background:color-mix(in srgb,var(--go) 15%,transparent);}
+.fz.mod{color:var(--warn);background:color-mix(in srgb,var(--warn) 15%,transparent);}
+.fz.hard{color:var(--bad);background:color-mix(in srgb,var(--bad) 15%,transparent);}
+.drive{color:var(--go);font-size:.56rem;font-family:var(--mono);}
+.fly{color:var(--faint);font-size:.56rem;font-family:var(--mono);}
+.age40{color:var(--warn);font-family:var(--mono);font-size:.56rem;}
+.status{cursor:pointer;font-family:var(--mono);font-size:.6rem;padding:.14rem .5rem;border-radius:4px;background:var(--panel2);color:var(--soft);border:1px solid var(--line);user-select:none;}
+.note{background:var(--panel2);border-left:3px solid var(--accent);border-radius:8px;padding:.6rem .9rem;font-size:.83rem;color:var(--soft);margin-top:.7rem;}.note b{color:var(--ink);}
+.no td{opacity:.4;}
+b{color:var(--ink);}
+.stackbar{display:flex;gap:.5rem;flex-wrap:wrap;margin:.4rem 0 0;font-family:var(--mono);font-size:.72rem;color:var(--soft);}
+.stackbar b{color:var(--go);}
+</style>
+<div class="wrap">
+<h1>Clinical study tracker — <span style="color:var(--go)">net-value model</span></h1>
+<p class="sub">Live ICON studies you qualify for, ranked by <b>what you actually keep</b> — pay minus travel minus childcare, using <i>your</i> assumptions below. Change the knobs and the ranking re-sorts instantly. Mom's step-up is excluded by design (deferred). Data pulled fresh past the site cache 2026-08-08.</p>
+<div class="prof">
+  <span>BMI <b>~22.5</b></span><span>162 lb · 5'9"</span><span>Male · non-smoker</span><span>High cholesterol ✓ qualifier</span><span>Shared custody</span><span><b>SLC</b> = friend childcare</span></div>
+
+<div class="controls">
+  <div class="ctl"><label>Home base</label><div class="seg" id="base"><button data-b="austin" class="on">Austin (now)</button><button data-b="omaha">Omaha (later)</button></div></div>
+  <div class="ctl"><label>Nanny $/night</label><input type="number" id="care" value="200" step="25"></div>
+  <div class="ctl"><label>Flight $/trip (rt)</label><input type="number" id="fly" value="350" step="25"></div>
+  <div class="ctl"><label>Drive $/trip (rt)</label><input type="number" id="drv" value="70" step="10"></div>
+  <div class="ctl"><label>Friend covers stays ≤</label><input type="number" id="thr" value="3" step="1"> </div>
+  <div class="ctl"><label>Sort by</label><div class="seg" id="sort"><button data-s="net" class="on">Net kept</button><button data-s="eff">$/night away</button><button data-s="pay">Gross pay</button></div></div>
+  <button class="reset" id="reset">reset</button>
+</div>
+
+<div class="stackbar" id="stack"></div>
+
+<h2>✅ You qualify — ranked by net value (your assumptions)</h2>
+<div class="card">
+<table id="tbl">
+<thead><tr>
+<th>#</th><th>Study</th><th class="srt active" data-s="pay">Pay</th><th>Stays</th><th class="n">Nights</th><th class="n">Trips</th><th>Loc</th><th class="n">Travel</th><th class="n">Care</th><th class="srt n" data-s="net">Net kept</th><th class="srt n" data-s="eff">$/night</th><th>Staffing</th><th>Apply</th><th>Status</th>
+</tr></thead>
+<tbody></tbody>
+</table>
+</div>
+<div class="note" id="legend"></div>
+
+<h2>❌ Excludes you — BMI/population gate (or closed)</h2>
+<div class="card"><table>
+<tr><th>Study</th><th>Pay</th><th>Loc</th><th>Why</th></tr>
+<tr class="no"><td><a class="study" href="https://iconstudies.com/sanantonio/Clinical-Research-Study/793/" target="_blank">3054AC</a></td><td class="n">$20,000</td><td>San Antonio</td><td>BMI 27–99 (overweight/obese). You're 22.5.</td></tr>
+<tr class="no"><td><a class="study" href="https://iconstudies.com/sanantonio/Clinical-Research-Study/808/" target="_blank">2988</a></td><td class="n">$15,800</td><td>San Antonio</td><td>Overweight/obese population.</td></tr>
+<tr class="no"><td><a class="study" href="https://iconstudies.com/SLC/Clinical-Research-Study/807/" target="_blank">3705-0020</a></td><td class="n">$10,000</td><td>SLC</td><td>Overweight — even though SLC.</td></tr>
+<tr class="no"><td><a class="study" href="https://iconstudies.com/Lenexa/Clinical-Research-Study/763/" target="_blank">0009/1138A</a></td><td class="n">$4,400</td><td>Lenexa</td><td>Overweight + low pay.</td></tr>
+<tr class="no"><td>0018-1399</td><td class="n">$32,500</td><td>SLC</td><td><b>CLOSED</b> — no longer accepting.</td></tr>
+</table></div>
+
+<h2>Expand the pool (next — I'll pull these live too)</h2>
+<div class="note"><b>Near Omaha:</b> Celerion — Lincoln NE (~1hr drive) 1-866-445-7033 · Altasciences/Vince — Overland Park KS 913-696-1601. <b>National:</b> Fortrea — Daytona FL ~$19.5k / Madison WI ~$19.25k (travel help) · Worldwide San Antonio · PPD Austin/Vegas. Aggregator: withpower.com (filter healthy male, BMI 18–25). Once pulled, they drop into the same model.</div>
+
+<script>
+var STUDIES = [
+ {id:'0021-1389', pay:22000, stays:[5,3,3,3,3], visits:2, loc:'SLC',  bmi:'10–29.9 ✓', ageMax:68, url:'https://iconstudies.com/SLC/Clinical-Research-Study/733/', note:'Your pick'},
+ {id:'2758C(MAD)',pay:21000, stays:[8,1,1],    visits:6, loc:'SA',   bmi:'verify',   ageMax:65, url:'https://iconstudies.com/sanantonio/Clinical-Research-Study/767/', note:''},
+ {id:'0798-1',   pay:19110, stays:[28],        visits:1, loc:'SA',   bmi:'19–30 ✓',  ageMax:55, url:'https://iconstudies.com/sanantonio/Clinical-Research-Study/813/', note:''},
+ {id:'1292 P2',  pay:18825, stays:[9,8],       visits:9, loc:'SA',   bmi:'18–32 ✓',  ageMax:80, url:'https://iconstudies.com/sanantonio/Clinical-Research-Study/759/', note:''},
+ {id:'2708-2S',  pay:17000, stays:[18],        visits:0, loc:'SA',   bmi:'verify',   ageMax:65, url:'https://iconstudies.com/sanantonio/Clinical-Research-Study/732/', note:''},
+ {id:'0078/2708',pay:17000, stays:[18],        visits:0, loc:'LEN',  bmi:'18–32 ✓',  ageMax:65, url:'https://iconstudies.com/Lenexa/Clinical-Research-Study/739/', note:''},
+ {id:'0240 B',   pay:16250, stays:[10,14],     visits:0, loc:'SA',   bmi:'verify',   ageMax:64, url:'https://iconstudies.com/sanantonio/Clinical-Research-Study/799/', note:''},
+ {id:'1292 P1',  pay:16000, stays:[9],         visits:6, loc:'SA',   bmi:'18–32 ✓',  ageMax:40, url:'https://iconstudies.com/sanantonio/Clinical-Research-Study/673/', note:''},
+ {id:'0240 A',   pay:13800, stays:[21],        visits:0, loc:'SA',   bmi:'verify',   ageMax:64, url:'https://iconstudies.com/sanantonio/Clinical-Research-Study/795/', note:''},
+ {id:'0050/2001',pay:11000, stays:[5],         visits:5, loc:'LEN',  bmi:'18–35 ✓',  ageMax:60, url:'https://iconstudies.com/Lenexa/Clinical-Research-Study/789/', note:'High-chol qualifier'},
+ {id:'0542-0831B',pay:9500, stays:[13],        visits:1, loc:'SLC',  bmi:'verify',   ageMax:55, url:'https://iconstudies.com/SLC/Clinical-Research-Study/774/', note:''},
+ {id:'0189-1230',pay:8000,  stays:[3,3],       visits:8, loc:'SLC',  bmi:'18–30 ✓',  ageMax:55, url:'https://iconstudies.com/SLC/Clinical-Research-Study/779/', note:''},
+ {id:'0050-1850',pay:6600,  stays:[6],         visits:2, loc:'SA',   bmi:'verify',   ageMax:65, url:'https://iconstudies.com/sanantonio/Clinical-Research-Study/676/', note:''},
+ {id:'0542-0831A',pay:5000, stays:[6],         visits:0, loc:'SLC',  bmi:'verify',   ageMax:55, url:'https://iconstudies.com/SLC/Clinical-Research-Study/773/', note:''},
+ {id:'2540-0064',pay:5000,  stays:[4],         visits:2, loc:'SLC',  bmi:'verify',   ageMax:50, url:'https://iconstudies.com/SLC/Clinical-Research-Study/810/', note:''}
+];
+// location meta: childcare source? drivable from each base?
+var LOC = {
+  SLC: {name:'SLC',         childcare:true,  driveAustin:false, driveOmaha:false},
+  SA:  {name:'San Antonio', childcare:false, driveAustin:true,  driveOmaha:false},
+  LEN: {name:'Lenexa KS',   childcare:false, driveAustin:false, driveOmaha:true}
+};
+var S = {base:'austin', care:200, fly:350, drv:70, thr:3, sort:'net'};
+var order=['not started','called','screening','enrolled','done','not eligible'];
+function loadSt(){try{return JSON.parse(localStorage.getItem('studyStatus')||'{}');}catch(e){return {};}}
+function saveSt(s){try{localStorage.setItem('studyStatus',JSON.stringify(s));}catch(e){}}
+var ST = loadSt();
+var fmt = function(n){return '$'+Math.round(n).toLocaleString();};
+
+function compute(s){
+  var L = LOC[s.loc];
+  var drivable = S.base==='austin' ? L.driveAustin : L.driveOmaha;
+  var perTrip = drivable ? S.drv : S.fly;
+  var trips = s.stays.length + s.visits;
+  var travel = trips * perTrip;
+  var nights = s.stays.reduce(function(a,b){return a+b;},0);
+  var careNights = 0;
+  if(!L.childcare){ s.stays.forEach(function(n){ if(n > S.thr) careNights += n; }); }
+  var care = careNights * S.care;
+  var net = s.pay - travel - care;
+  var eff = net / nights;
+  var maxStay = Math.max.apply(null, s.stays);
+  var feas = (L.childcare || maxStay <= S.thr) ? 'easy' : (maxStay <= 9 ? 'mod' : 'hard');
+  return {drivable:drivable, trips:trips, travel:travel, nights:nights, care:care, careNights:careNights, net:net, eff:eff, feas:feas};
+}
+function staffLabel(s,c){
+  var L=LOC[s.loc];
+  if(L.childcare) return 'friend (SLC)';
+  if(c.feas==='easy') return 'friend, short';
+  if(c.feas==='mod') return 'sitter '+Math.max.apply(null,s.stays)+'n';
+  return 'nanny '+Math.max.apply(null,s.stays)+'n';
+}
+function render(){
+  var rows = STUDIES.map(function(s){return {s:s, c:compute(s)};});
+  rows.sort(function(a,b){
+    if(S.sort==='pay') return b.s.pay-a.s.pay;
+    if(S.sort==='eff') return b.c.eff-a.c.eff;
+    return b.c.net-a.c.net;
+  });
+  var tb = document.querySelector('#tbl tbody'); tb.innerHTML='';
+  rows.forEach(function(r,i){
+    var s=r.s,c=r.c;
+    var tr=document.createElement('tr'); if(i<3) tr.className='top';
+    var age = s.ageMax<=40 ? ' <span class="age40">≤40⚠</span>' : '';
+    var applyUrl = s.url + 'Application/';
+    tr.innerHTML =
+      '<td class="n">'+(i+1)+'</td>'+
+      '<td><a class="study" href="'+s.url+'" target="_blank">'+s.id+'</a>'+age+(s.note?' <span class="fly">'+s.note+'</span>':'')+'</td>'+
+      '<td class="n">'+fmt(s.pay)+'</td>'+
+      '<td class="fly">'+s.stays.join('+')+'n'+(s.visits?' · '+s.visits+'v':'')+'</td>'+
+      '<td class="n">'+c.nights+'</td>'+
+      '<td class="n">'+c.trips+' <span class="'+(c.drivable?'drive':'fly')+'">'+(c.drivable?'drive':'fly')+'</span></td>'+
+      '<td><span class="loc '+(s.loc==='SLC'?'slc':'')+'">'+LOC[s.loc].name+'</span></td>'+
+      '<td class="n">'+fmt(c.travel)+'</td>'+
+      '<td class="n">'+(c.care?fmt(c.care):'—')+'</td>'+
+      '<td class="net">'+fmt(c.net)+'</td>'+
+      '<td class="n">'+fmt(c.eff)+'</td>'+
+      '<td><span class="fz '+c.feas+'">'+staffLabel(s,c)+'</span></td>'+
+      '<td><a class="apply" href="'+applyUrl+'" target="_blank">apply→</a></td>'+
+      '<td><span class="status" data-id="'+s.id+'">'+(ST[s.id]||'not started')+'</span></td>';
+    tb.appendChild(tr);
+  });
+  // header active state
+  document.querySelectorAll('th.srt').forEach(function(th){ th.classList.toggle('active', th.dataset.s===S.sort); });
+  // stack suggestion: top-2 net that aren't both same long-stay
+  var best = rows.slice(0,2);
+  var sum = best.reduce(function(a,r){return a+r.c.net;},0);
+  document.getElementById('stack').innerHTML =
+    'Best stack right now ('+ (S.base==='austin'?'Austin base':'Omaha base') +'): '+
+    best.map(function(r){return r.s.id+' <b>'+fmt(r.c.net)+' net</b>';}).join(' + ') +
+    ' = <b>'+fmt(sum)+' kept</b>';
+  document.getElementById('legend').innerHTML =
+    '<b>How net is figured:</b> pay − (trips × '+(S.base==='austin'?'Austin':'Omaha')+' travel) − (nanny nights × '+fmt(S.care)+'). '+
+    'SLC nights cost $0 childcare (your friends). Stays ≤ '+S.thr+' nights = friend, $0. Longer non-SLC stays = paid nanny. '+
+    'Follow-up visits count as trips (travel) but not overnight childcare — adjust if a far visit needs a hotel night. '+
+    '<b>Staffing</b> = the hardest single stay you’d need to cover.';
+}
+// wire controls
+document.querySelectorAll('#base button').forEach(function(b){ b.onclick=function(){ document.querySelectorAll('#base button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); S.base=b.dataset.b; render(); }; });
+document.querySelectorAll('#sort button').forEach(function(b){ b.onclick=function(){ document.querySelectorAll('#sort button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); S.sort=b.dataset.s; render(); }; });
+document.querySelectorAll('th.srt').forEach(function(th){ th.onclick=function(){ S.sort=th.dataset.s; document.querySelectorAll('#sort button').forEach(function(x){x.classList.toggle('on', x.dataset.s===S.sort);}); render(); }; });
+['care','fly','drv','thr'].forEach(function(k){ document.getElementById(k).oninput=function(e){ S[k]=parseFloat(e.target.value)||0; render(); }; });
+document.getElementById('reset').onclick=function(){ S={base:'austin',care:200,fly:350,drv:70,thr:3,sort:'net'}; document.getElementById('care').value=200;document.getElementById('fly').value=350;document.getElementById('drv').value=70;document.getElementById('thr').value=3; document.querySelectorAll('#base button').forEach(function(x){x.classList.toggle('on',x.dataset.b==='austin');}); document.querySelectorAll('#sort button').forEach(function(x){x.classList.toggle('on',x.dataset.s==='net');}); render(); };
+// status cycling (delegated)
+document.querySelector('#tbl tbody').addEventListener('click',function(e){ var el=e.target.closest('.status'); if(!el)return; var id=el.dataset.id; var i=order.indexOf(el.textContent.trim()); i=(i+1)%order.length; el.textContent=order[i]; ST[id]=order[i]; saveSt(ST); });
+render();
+</script>

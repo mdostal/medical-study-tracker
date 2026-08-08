@@ -1,0 +1,41 @@
+{
+  "_comment": "Owner's national friend network mapped to nearby study hubs + childcare likelihood. ANONYMIZED by design: city + likelihood only, never friend names or details. can_take_riley: yes | likely | maybe | no. Owner edits these as friends confirm. Insight (his words): friends OUTSIDE Austin, especially those with kids, are more open to taking Riley (from both sides) than Austin friends. Austin (home) is the childcare-hard base.",
+  "hubs": {
+    "SLC": "Salt Lake City UT (ICON, JBR/CenExel)",
+    "SA": "San Antonio TX (ICON, Worldwide)",
+    "AUS": "Austin TX (PPD/Thermo early-phase) — home city, 0 travel but childcare-hard",
+    "LV": "Las Vegas NV (PPD/Thermo, Parexel) — the $40,400 MAD study",
+    "LEN": "Lenexa / Overland Park KS = Kansas City (ICON, Altasciences)",
+    "LINC": "Lincoln NE (Celerion)",
+    "MSP": "Minneapolis MN (Nucleus)",
+    "WI": "West Bend + Madison WI (Spaulding, Fortrea)",
+    "SOCAL": "Los Angeles / Cypress CA (Altasciences LA = former WCCT)",
+    "AZ": "Tempe / Phoenix AZ (Celerion)",
+    "NJ": "Secaucus / Newark NJ (Frontage, Biotrial)",
+    "ATL": "Atlanta GA (TrialMed)",
+    "DFW": "Dallas–Fort Worth TX (Fortrea Dallas, DM Clinical)",
+    "FL": "Daytona / Miami FL (Fortrea, CPMI, QPS)",
+    "MTL": "Montreal QC (Altasciences, Innovaderm)",
+    "TOR": "Toronto ON (BioPharma Services)"
+  },
+  "friend_metros": [
+    { "metro": "Salt Lake City, UT", "covers_hubs": ["SLC"], "can_take_riley": "yes",    "has_kids": true,  "notes": "Established in earlier planning — friends here can watch Riley. SLC is a childcare-solved hub." },
+    { "metro": "Wisconsin (Milwaukee area)", "covers_hubs": ["WI", "MSP"], "can_take_riley": "likely", "has_kids": true, "notes": "Friends with kids; West Bend (Spaulding) is in-state. Strong feasibility for Spaulding Solar." },
+    { "metro": "Phoenix / Mesa, AZ", "covers_hubs": ["AZ"], "can_take_riley": "likely", "has_kids": true, "notes": "Multiple friends; covers Celerion Tempe." },
+    { "metro": "Philadelphia, PA", "covers_hubs": ["NJ"], "can_take_riley": "likely", "has_kids": true, "notes": "~1.5 hr to Secaucus NJ (Frontage). Friend-with-kids." },
+    { "metro": "New York, NY", "covers_hubs": ["NJ"], "can_take_riley": "maybe", "has_kids": null, "notes": "Adjacent to Secaucus/Newark NJ hubs." },
+    { "metro": "San Diego, CA", "covers_hubs": ["SOCAL"], "can_take_riley": "maybe", "has_kids": null, "notes": "Covers So-Cal units (LA/Cypress) with a drive." },
+    { "metro": "Atlanta, GA", "covers_hubs": ["ATL"], "can_take_riley": "maybe", "has_kids": null, "notes": "Covers TrialMed Atlanta." },
+    { "metro": "Dallas–Fort Worth, TX", "covers_hubs": ["DFW", "SA"], "can_take_riley": "maybe", "has_kids": null, "notes": "Covers DFW units; ~4 hr to San Antonio." },
+    { "metro": "Omaha, NE", "covers_hubs": ["LINC", "LEN"], "can_take_riley": "maybe", "has_kids": null, "notes": "His future base. Lincoln (~1 hr) + Overland Park KS (~3 hr) drivable once relocated." },
+    { "metro": "Las Vegas, NV", "covers_hubs": ["LV"], "can_take_riley": "likely", "has_kids": null, "notes": "He knows people in Vegas (stated 2026-08-08) — this unlocks the PPD Vegas $40,400 MAD study, the biggest check found. Confirm which friend can cover the long MAD confinement." }
+  ],
+  "home_base_childcare": {
+    "austin": { "can_take_riley": "no", "notes": "Austin (current home) is childcare-HARD — many local friends can't take her. San Antonio studies are a drive from Austin but confinement still needs coverage; lean on a DFW friend or hired nanny." },
+    "omaha": { "can_take_riley": "maybe", "notes": "After the move. Lincoln/Overland Park become drive-and-return." }
+  },
+  "base_drive_hubs": {
+    "austin": ["SA", "DFW"],
+    "omaha": ["LINC", "LEN"]
+  }
+}

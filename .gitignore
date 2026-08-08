@@ -1,0 +1,23 @@
+# deps / build
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# os / editor
+.DS_Store
+*.log
+.vscode/
+.idea/
+
+# supabase local
+.supabase/
+
+# personal / do-not-publish
+# (friend map is anonymized city-only by design; keep it in-repo. Never add friends' names/details.)

@@ -1,0 +1,107 @@
+{
+  "_comment": "National paid-Phase-1 / healthy-volunteer CRO directory. Verified live 2026-08-08 via Playwright+cache-buster (portals are JS-rendered + cached). pull_method tells the refresher how to scrape each. 'pay is always up-to; payout schedule + exact nights confirmed on the screening call.'",
+  "networks": [
+    { "name": "ICON", "brand": "iconstudies.com", "sites": [
+        {"city":"Salt Lake City","state":"UT","country":"US","hub":"SLC"},
+        {"city":"San Antonio","state":"TX","country":"US","hub":"SA"},
+        {"city":"Lenexa","state":"KS","country":"US","hub":"LEN"}],
+      "portal":"https://iconstudies.com/All-Clinical-Research-Studies/", "phone":"varies by site",
+      "pull_method":"Playwright, navigate All-Clinical-Research-Studies?nocache=<ts>#sort=compensation-high, extract a[href*=Clinical-Research-Study] (skip /Application dupes). Detail pages fetch fine for BMI.",
+      "verified":"2026-08-08" },
+    { "name": "PPD / Thermo Fisher", "brand": "Trialmed", "sites": [
+        {"city":"Austin","state":"TX","country":"US","hub":"AUS","phase":"early (confinement)"},
+        {"city":"Las Vegas","state":"NV","country":"US","hub":"LV","phase":"early (confinement)"},
+        {"city":"San Antonio","state":"TX","country":"US","hub":"SA","phase":"late-phase outpatient only"}],
+      "portal":"https://trialmed.com/find-a-study/", "phone":"877-362-2608",
+      "pull_method":"trialmed.com/find-a-study; filter Male + sort Compensation-most. Only Austin & Vegas are early-phase confinement units. Night counts often hidden ('flexible start') → confirm by phone.",
+      "notes":"ppd.com 'Participate' routes here. Highest single check found (Vegas 3119492-MAD $40,400). Austin = in-city / zero travel.",
+      "verified":"2026-08-08" },
+    { "name": "Fortrea", "sites": [
+        {"city":"Dallas","state":"TX","country":"US","hub":"DFW"},
+        {"city":"Daytona Beach","state":"FL","country":"US","hub":"FL"},
+        {"city":"Madison","state":"WI","country":"US","hub":"WI"}],
+      "portal":"https://fortreaclinicaltrials.com/", "phone":"1-866-429-3700",
+      "pull_method":"Per-study pages give exact nights + visits + BMI. $750 referral. Daytona/Madison pay $100/follow-up-visit travel stipend.",
+      "notes":"Dallas is a ~3hr DRIVE from Austin. Madison WI = Wisconsin friend childcare.",
+      "verified":"2026-08-08" },
+    { "name": "Celerion", "brand": "helpresearch.com", "sites": [
+        {"city":"Lincoln","state":"NE","country":"US","hub":"LINC"},
+        {"city":"Tempe","state":"AZ","country":"US","hub":"AZ"}],
+      "portal":"https://helpresearch.com/", "phone":"1-866-348-4859",
+      "pull_method":"All routing via helpresearch.com; BMI/nights hidden → phone. Lincoln = ~1hr drive from Omaha.",
+      "verified":"2026-08-08" },
+    { "name": "Altasciences", "sites": [
+        {"city":"Overland Park","state":"KS","country":"US","hub":"LEN","portal":"https://participantskc.altasciences.com/","phone":"913-213-2970"},
+        {"city":"Cypress / Los Angeles","state":"CA","country":"US","hub":"SOCAL","portal":"https://participantsla.altasciences.com/","phone":"pending"},
+        {"city":"Montreal","state":"QC","country":"Canada","hub":"MTL","portal":"https://participantsmtl.altasciences.com/etudes-disponibles","phone":"514-381-2546"}],
+      "portal":"per-site subdomains above", "phone":"per site",
+      "pull_method":"Each site is participants<code>.altasciences.com. BMI not posted (screening-gated) → confirm on call. Pays via ClinCard.",
+      "notes":"Overland Park KS = ~3hr DRIVE from Omaha, highest US net pay in the Midwest pull.",
+      "verified":"2026-08-08" },
+    { "name": "Spaulding Clinical", "brand": "spauldingpays.com", "sites": [
+        {"city":"West Bend","state":"WI","country":"US","hub":"WI"}],
+      "portal":"https://spauldingpays.com/", "phone":"1-800-597-4507",
+      "pull_method":"Publishes BMI + nights + pay openly. Min weight 110 lb.",
+      "notes":"West Bend WI = Wisconsin friend childcare. 'Solar' = $6,625 / 4 nights, standout velocity.",
+      "verified":"2026-08-08" },
+    { "name": "Nucleus Network", "sites": [
+        {"city":"Minneapolis","state":"MN","country":"US","hub":"MSP"}],
+      "portal":"https://nucleusnetwork.com/participants/find-a-trial", "phone":"612-315-6490",
+      "pull_method":"Publishes full BMI/nights/pay. Filter to Minneapolis.",
+      "notes":"~1hr flight / ~6.5hr drive from Omaha. Highest open study is female-only.",
+      "verified":"2026-08-08" },
+    { "name": "Frontage Clinical Services", "sites": [
+        {"city":"Secaucus","state":"NJ","country":"US","hub":"NJ"}],
+      "portal":"https://www.frontagelab.com/enroll-in-a-study/", "phone":"1-877-298-9071",
+      "pull_method":"Per-study BMI (18-32) + nights posted. 160-bed unit <10mi from NYC.",
+      "notes":"Philly/NYC friend childcare. Best East-Coast healthy-volunteer pay.",
+      "verified":"2026-08-08" },
+    { "name": "BioPharma Services", "sites": [
+        {"city":"Toronto","state":"ON","country":"Canada","hub":"TOR"}],
+      "portal":"https://biopharmaservices.com/volunteers/", "phone":"416-747-8484",
+      "pull_method":"volunteer-hub lists studies; BMI/nights per-study by phone. CAD pay.",
+      "notes":"Mostly Ontario residents (operational, not a bar). US citizen w/ passport typically OK — confirm.",
+      "verified":"2026-08-08" },
+    { "name": "Worldwide Clinical Trials", "sites": [
+        {"city":"San Antonio","state":"TX","country":"US","hub":"SA"}],
+      "portal":"https://www.worldwide.com/participate-in-a-study/", "phone":"210-635-1515",
+      "pull_method":"200-bed unit. No normal-BMI study open 2026-08-08 (only an obese GLP-1, cohort full).",
+      "notes":"~1.5hr DRIVE from Austin. Get on the healthy-volunteer list for the next panel.",
+      "verified":"2026-08-08" },
+    { "name": "Clinical Pharmacology of Miami (CPMI)", "sites": [
+        {"city":"Miami","state":"FL","country":"US","hub":"FL"}],
+      "portal":"https://cpmiclinical.com/", "phone":"305-817-2900",
+      "pull_method":"Healthy roster NOT web-listed (MyTrial app / phone). Legit early-phase (FIH, hepatic/renal). Call.",
+      "verified":"2026-08-08" },
+    { "name": "QPS", "sites": [
+        {"city":"South Miami","state":"FL","country":"US","hub":"FL"}],
+      "portal":"https://miamiresearch.com/", "phone":"305-722-4440",
+      "pull_method":"Roster skews obese/patient now. Apply to volunteer DB; healthy FIH rotate in.",
+      "verified":"2026-08-08" },
+    { "name": "Biotrial", "sites": [
+        {"city":"Newark","state":"NJ","country":"US","hub":"NJ"}],
+      "portal":"US recruiting redirects to https://trialmed.com/find-a-study/", "phone":"973-388-2848",
+      "pull_method":"biotrial.com US volunteer → trialmed.com. Newark not in current active-clinic list → CALL to confirm CPU still enrolling healthy volunteers.",
+      "status":"verify", "verified":"2026-08-08" },
+    { "name": "JBR / Jean Brown Research (CenExel)", "sites": [
+        {"city":"Salt Lake City","state":"UT","country":"US","hub":"SLC"}],
+      "portal":"pending (West/SLC pull)", "phone":"pending",
+      "notes":"CenExel's healthy-volunteer arm = JBR in SLC. SLC = friend childcare. West/SLC agent detail pending.",
+      "verified":"pending" },
+    { "name": "DM Clinical Research", "sites": [
+        {"city":"Houston / Dallas / San Antonio","state":"TX","country":"US","hub":"DFW"}],
+      "portal":"https://dmclinicaltrials.com/", "phone":"281-517-0550",
+      "notes":"Phase 2-4 outpatient community trials — NOT a Phase-1 healthy-confinement unit. Deprioritize.",
+      "verified":"2026-08-08" },
+    { "name": "Innovaderm Research", "sites": [
+        {"city":"Montreal","state":"QC","country":"Canada","hub":"MTL"}],
+      "portal":"https://innovaderm.com/research-participant/", "phone":"514-521-3111",
+      "notes":"Dermatology PATIENT CRO; one low-pay ($615 CAD) healthy slot. Deprioritize.",
+      "verified":"2026-08-08" },
+    { "name": "KGK Science", "sites": [
+        {"city":"London","state":"ON","country":"Canada","hub":"TOR"}],
+      "portal":"https://kgkscience.com/participants/", "phone":"email sales@kgkscience.com",
+      "notes":"Nutraceutical/supplement studies, low/undisclosed pay. Deprioritize.",
+      "verified":"2026-08-08" }
+  ]
+}
