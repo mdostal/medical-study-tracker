@@ -14,18 +14,22 @@ describe("sanitizePersistedState", () => {
     expect(sanitizePersistedState(undefined)).toEqual({
       assumptions: DEFAULT_ASSUMPTIONS,
       sortKey: DEFAULT_SORT_KEY,
+      backup_care_hubs: [],
     });
     expect(sanitizePersistedState(null)).toEqual({
       assumptions: DEFAULT_ASSUMPTIONS,
       sortKey: DEFAULT_SORT_KEY,
+      backup_care_hubs: [],
     });
     expect(sanitizePersistedState("not an object")).toEqual({
       assumptions: DEFAULT_ASSUMPTIONS,
       sortKey: DEFAULT_SORT_KEY,
+      backup_care_hubs: [],
     });
     expect(sanitizePersistedState(42)).toEqual({
       assumptions: DEFAULT_ASSUMPTIONS,
       sortKey: DEFAULT_SORT_KEY,
+      backup_care_hubs: [],
     });
   });
 
@@ -39,6 +43,7 @@ describe("sanitizePersistedState", () => {
         has_dependents_needing_care: true,
       },
       sortKey: "net_cash" as const,
+      backup_care_hubs: ["AUS", "MSP"],
     };
     expect(sanitizePersistedState(valid)).toEqual(valid);
   });
@@ -84,5 +89,39 @@ describe("sanitizePersistedState", () => {
     });
     expect(result.assumptions.flight_cost).toBe(DEFAULT_ASSUMPTIONS.flight_cost);
     expect(result.assumptions.drive_cost).toBe(DEFAULT_ASSUMPTIONS.drive_cost);
+  });
+
+  // story: configurable-backup-care-coverage
+  describe("backup_care_hubs", () => {
+    it("defaults to [] when missing", () => {
+      expect(sanitizePersistedState({}).backup_care_hubs).toEqual([]);
+    });
+
+    it("keeps a valid array of hub-code strings", () => {
+      const result = sanitizePersistedState({ backup_care_hubs: ["AUS", "MSP"] });
+      expect(result.backup_care_hubs).toEqual(["AUS", "MSP"]);
+    });
+
+    it("dedupes repeated hub codes", () => {
+      const result = sanitizePersistedState({ backup_care_hubs: ["AUS", "AUS", "MSP"] });
+      expect(result.backup_care_hubs).toEqual(["AUS", "MSP"]);
+    });
+
+    it("drops non-string entries but keeps the valid ones", () => {
+      const result = sanitizePersistedState({ backup_care_hubs: ["AUS", 42, null, {}, "MSP"] });
+      expect(result.backup_care_hubs).toEqual(["AUS", "MSP"]);
+    });
+
+    it("drops empty-string entries", () => {
+      const result = sanitizePersistedState({ backup_care_hubs: ["AUS", ""] });
+      expect(result.backup_care_hubs).toEqual(["AUS"]);
+    });
+
+    it("falls back to [] for a non-array value (never throws)", () => {
+      expect(sanitizePersistedState({ backup_care_hubs: "AUS" }).backup_care_hubs).toEqual([]);
+      expect(sanitizePersistedState({ backup_care_hubs: { hub: "AUS" } }).backup_care_hubs).toEqual([]);
+      expect(sanitizePersistedState({ backup_care_hubs: null }).backup_care_hubs).toEqual([]);
+      expect(() => sanitizePersistedState({ backup_care_hubs: 42 })).not.toThrow();
+    });
   });
 });

@@ -158,7 +158,12 @@ describe("backup-care cost (has_dependents_needing_care + backup_care_rate_per_n
     expect(scored.backup_care_by).toBe("paid-backup-care");
   });
 
-  it("is $0 for a stay within friend_threshold_nights even with dependents", () => {
+  // story: configurable-backup-care-coverage — a short stay costing $0
+  // because of friend_threshold_nights is a DIFFERENT reason than hub-based
+  // free coverage (fm.backup_care_available) and must be labeled
+  // differently, so a fresh visitor with zero configured hubs never sees a
+  // "free coverage" badge on a short-stay study.
+  it("is $0 for a stay within friend_threshold_nights even with dependents, labeled short-stay-no-cost (not free-coverage)", () => {
     const shortStay: Study = { ...study, stays: [2] };
     const scored = scoreOne(
       shortStay,
@@ -167,7 +172,20 @@ describe("backup-care cost (has_dependents_needing_care + backup_care_rate_per_n
       friendMap,
     );
     expect(scored.backup_care_cost).toBe(0);
-    expect(scored.backup_care_by).toBe("free-coverage");
+    expect(scored.backup_care_by).toBe("short-stay-no-cost");
+  });
+
+  it("is $0 and labeled short-stay-no-cost (not free-coverage) with NO hub configured at all", () => {
+    const shortStay: Study = { ...study, stays: [2] };
+    const emptyFriendMap: FriendMap = { hubs: {}, backup_care_available: {} };
+    const scored = scoreOne(
+      shortStay,
+      profile,
+      { ...assumptions, has_dependents_needing_care: true },
+      emptyFriendMap,
+    );
+    expect(scored.backup_care_by).toBe("short-stay-no-cost");
+    expect(scored.backup_care_by).not.toBe("free-coverage");
   });
 
   it("is $0 for a long stay in a hub with user-stated free coverage", () => {

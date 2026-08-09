@@ -10,6 +10,15 @@ import { Toggle } from "@/components/ui/toggle";
 import { Button } from "@/components/ui/button";
 import { SORT_OPTIONS, type SortKey } from "@/components/ranked-table";
 
+// story: configurable-backup-care-coverage — the fictional example hubs
+// this panel used to display read-only ("free coverage: SLC, SA") are gone
+// (data/friend-childcare-map.json's backup_care_available ships permanently
+// empty now, see that file's header comment). BackupCareHubInfo below is
+// now just "a selectable hub" — every hub in the static map, not a
+// pre-curated free-coverage list — and this panel lets the visitor mark
+// which of THEIR OWN hubs have free coverage, never implying any hub does
+// by default.
+
 function Field({
   label,
   children,
@@ -27,14 +36,13 @@ function Field({
   );
 }
 
-// story: generalize-profile-inputs — a hub with user-stated free backup-care
-// coverage, shaped for display in the "free coverage" list below (joined
-// from data/friend-childcare-map.json's hubs + backup_care_available in
-// app/page.tsx, since that's where the static map is read).
+// A selectable hub (city) from data/friend-childcare-map.json's static
+// `hubs` list — just a name/code pair, no free-coverage claim attached.
+// Used both as the full list of options the visitor can pick from
+// (availableBackupCareHubs) and the shape of what app/page.tsx renders.
 export interface BackupCareHubInfo {
   hub: string;
   city: string;
-  note?: string;
 }
 
 const HOME_BASE_DATALIST_ID = "mst-home-base-cities";
@@ -45,14 +53,25 @@ export function ProfilePanel({
   sortKey,
   onSortKeyChange,
   onReset,
+  availableBackupCareHubs = [],
   backupCareHubs = [],
+  onBackupCareHubsChange,
 }: {
   assumptions: Assumptions;
   onChange: (next: Assumptions) => void;
   sortKey: SortKey;
   onSortKeyChange: (key: SortKey) => void;
   onReset: () => void;
-  backupCareHubs?: BackupCareHubInfo[];
+  // Every hub the visitor could pick from (data/friend-childcare-map.json's
+  // hubs — not backup_care_available, which is always empty in the shipped
+  // file).
+  availableBackupCareHubs?: BackupCareHubInfo[];
+  // story: configurable-backup-care-coverage — hub codes THIS visitor has
+  // marked as their own free coverage. Defaults to [] — a fresh visitor
+  // sees every checkbox unmarked and every study shows the paid rate, never
+  // "free coverage", until they explicitly select one.
+  backupCareHubs?: string[];
+  onBackupCareHubsChange?: (next: string[]) => void;
 }) {
   const set = <K extends keyof Assumptions>(key: K, value: Assumptions[K]) =>
     onChange({ ...assumptions, [key]: value });
@@ -157,19 +176,32 @@ export function ProfilePanel({
             />
           </Field>
 
-          {backupCareHubs.length > 0 && (
-            <Field label="Free coverage (childcare or other backup care)">
-              <div className="flex max-w-xs flex-wrap gap-1">
-                {backupCareHubs.map((h) => (
-                  <span
+          {availableBackupCareHubs.length > 0 && (
+            <Field label="Your own free coverage — cities where YOU have someone who could help">
+              <ToggleGroup
+                multiple
+                value={backupCareHubs}
+                onValueChange={(next) => onBackupCareHubsChange?.(next)}
+                variant="outline"
+                size="sm"
+                className="max-w-md flex-wrap"
+              >
+                {availableBackupCareHubs.map((h) => (
+                  <ToggleGroupItem
                     key={h.hub}
-                    title={h.note}
-                    className="rounded-md border bg-muted px-2 py-1 font-mono text-[0.62rem] text-muted-foreground"
+                    value={h.hub}
+                    className="font-mono text-[0.62rem]"
                   >
                     {h.city}
-                  </span>
+                  </ToggleGroupItem>
                 ))}
-              </div>
+              </ToggleGroup>
+              <p className="max-w-xs text-[0.6rem] leading-snug text-muted-foreground">
+                This is your own input, not a fact about any clinic or city —
+                mark a city only if you personally have a friend, family
+                member, or partner who could cover backup care there. Nothing
+                is marked by default.
+              </p>
             </Field>
           )}
         </>
