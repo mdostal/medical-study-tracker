@@ -16,10 +16,14 @@
 //
 // Data-integrity note (docs/DATA-INTEGRITY.md): a study only ships with a real, resolving,
 // per-study source_url and verified_by:"playwright-DOM" set from an actual DOM read in this run.
-// Only four networks currently have a *documented, concrete* DOM extraction recipe (see
-// docs/DATA-SOURCES.md): ICON, Fortrea, Spaulding Clinical, and JBR/CenExel's healthy-volunteer
-// listing. Those four are fully automated below (confirmed live 2026-08-08 while building this
-// script — see the story's final report for the recon transcript).
+// Ten networks currently have a *documented, concrete* DOM extraction recipe (see
+// docs/DATA-SOURCES.md): ICON, Fortrea, Spaulding Clinical, JBR/CenExel's healthy-volunteer
+// listing (confirmed live 2026-08-08 while building this script — see that story's final report
+// for the recon transcript), plus Altasciences (all 3 sites), Celerion, Frontage, Nucleus,
+// PPD/Thermo, and BioPharma Services, added by story fix-study-deep-links (2026-08-09) after each
+// one's prior source_url turned out to be a generic network homepage/search page presented as if
+// it were a per-study link — see that section's own comments below and docs/DATA-SOURCES.md.
+// Those ten are fully automated below.
 //
 // story: scrape-detail-page-eligibility (2026-08-09 fix) -- ICON, Fortrea, and JBR/CenExel used to
 // stop at the listing page/card (pay, dates, title) and never visited a study's own detail page,
@@ -1548,6 +1552,118 @@ async function pullPPDThermo(browser) {
   return studies;
 }
 
+// -------------------- BioPharma Services (confirmed: /volunteer/<slug>/ detail pages) -----------
+// story: fix-study-deep-links -- BioPharma wasn't one of this story's originally-named 8 networks,
+// but the acceptance criteria are explicit that EVERY study in the ranked table needs a real link
+// or an honest fallback, and BioPharma's own source_url was still the generic
+// biopharmaservices.com/volunteers/ page. Live-verified 2026-08-09: that same page's "Study
+// Details" buttons link to real per-study pages (/volunteer/study-no-<code>/), each publishing its
+// own compact "STUDY NO. <code>" id, gender/age/compensation, and a dated "Clinic Check-in"/
+// "Clinic Check-out" pair this tool can compute real nights from (unlike Altasciences MTL's
+// date-only pair, these include the year, so no same-year assumption is needed).
+const BIOPHARMA_MONTH_INDEX = MONTH_INDEX; // reuse the Altasciences month-name table above
+
+function nightsBetweenFullDates(mon1, d1, y1, mon2, d2, y2) {
+  const mi1 = BIOPHARMA_MONTH_INDEX[mon1.slice(0, 3).toLowerCase()];
+  const mi2 = BIOPHARMA_MONTH_INDEX[mon2.slice(0, 3).toLowerCase()];
+  if (mi1 == null || mi2 == null) return null;
+  const start = Date.UTC(parseInt(y1, 10), mi1, parseInt(d1, 10));
+  const end = Date.UTC(parseInt(y2, 10), mi2, parseInt(d2, 10));
+  const nights = Math.round((end - start) / 86_400_000);
+  return nights > 0 && nights <= 120 ? nights : null;
+}
+
+async function pullBioPharma(browser) {
+  const listPage = await newPage(browser);
+  let hrefs;
+  try {
+    await listPage.goto(cacheBustedUrl("https://biopharmaservices.com/volunteers/"), {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+    await listPage.waitForSelector("a", { state: "attached", timeout: 20_000 });
+    await settleAfterSelector(listPage);
+    hrefs = await listPage.$$eval("a", (as) => [
+      ...new Set(
+        as
+          .filter((a) => /study details/i.test(a.textContent ?? ""))
+          .map((a) => a.getAttribute("href") ?? "")
+          .filter(Boolean)
+      ),
+    ]);
+  } finally {
+    await listPage.close();
+  }
+
+  const studies = [];
+  for (const href of hrefs) {
+    const detailUrl = new URL(href, "https://biopharmaservices.com").toString();
+    const page = await newPage(browser);
+    try {
+      await page.goto(cacheBustedUrl(detailUrl), { waitUntil: "networkidle", timeout: 45_000 });
+      const text = await page.$eval("body", (b) => b.innerText);
+
+      // The page's own short id ("STUDY NO. 2923 C4") is distinct from its longer page title
+      // ("STUDY NO. 2923 Cohort 4") and matches this tool's pre-existing id convention for this
+      // network exactly (e.g. "2923 C4", already in data/studies.seed.json before this puller
+      // existed) -- read from the body text, not the <title>.
+      const idM = text.match(/STUDY NO\.\s*([A-Za-z0-9]+\s+[A-Za-z0-9]+)\s*\n/);
+      if (!idM) continue; // page didn't match the expected template — don't invent an id
+
+      const genderM = text.match(/Gender:\s*([^\n]+)/i);
+      const ageM = text.match(/Age Range:\s*(\d+)\s*-\s*(\d+)/i);
+      const demographic = text.match(/Demographic:\s*([^\n]+)/i)?.[1]?.trim() ?? "";
+      const smoker = /non-smokers?/i.test(text) ? "non" : /smokers?/i.test(text) ? "any" : "non";
+
+      const stayM = text.match(
+        /Clinic Check-in:\s*\w+,\s*([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})[\s\S]*?Clinic Check-out:\s*\w+,\s*([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})/i
+      );
+      const nights = stayM ? nightsBetweenFullDates(stayM[1], stayM[2], stayM[3], stayM[4], stayM[5], stayM[6]) : null;
+
+      const genderText = genderM?.[1] ?? "";
+      const sex = /female/i.test(genderText) ? "female" : /\bmale/i.test(genderText) ? "male" : "M/F";
+      // Same conservative pattern as trialmed's non-childbearing handling above: the app's Profile
+      // model has no "postmenopausal/surgically sterile" field, so a demographic gate like that
+      // (study "2998 G4", confirmed live 2026-08-09) can't be scored dynamically -- hard-exclude
+      // with the real reason rather than let it silently show as available to any female profile.
+      const gatedDemographic = /postmenopausal|surgically sterile|non-child-?bearing/i.test(demographic);
+
+      studies.push({
+        id: idM[1].trim(),
+        network: "BioPharma Services",
+        city: "Toronto",
+        state: "ON",
+        country: "Canada",
+        hub: "TOR",
+        pay_gross: parsePay(text.match(/Compensation:?\s*\$[\d,]+(?:\.\d+)?/i)?.[0] ?? text),
+        currency: "CAD",
+        payout: { type: "unknown", settle_days: null },
+        stays: nights ? [nights] : null,
+        visits: /Follow-Up Visit\s*\n?\s*N\/A/i.test(text) ? 0 : null,
+        bmi_min: null,
+        bmi_max: null,
+        age_min: ageM ? parseInt(ageM[1], 10) : 18,
+        age_max: ageM ? parseInt(ageM[2], 10) : 99,
+        sex,
+        smoker,
+        special_pop: null,
+        ...(gatedDemographic ? { eligible: false, exclude_reason: `${demographic}.` } : { eligible: true }),
+        source_url: detailUrl,
+        phone: "416-747-8484",
+        verified: new Date().toISOString().slice(0, 10),
+        verified_by: "playwright-DOM",
+        notes: demographic || undefined,
+      });
+    } catch (err) {
+      warnAnnotation(`BioPharma: failed to read study detail page ${detailUrl} (${err.message})`);
+    } finally {
+      await page.close();
+    }
+  }
+  if (studies.length === 0) throw new Error("no /volunteer/ detail pages found on biopharmaservices.com");
+  return studies;
+}
+
 // -------------------- Automated pullers registry --------------------
 // Keyed by the exact `network` string used in data/studies.seed.json rows.
 
@@ -1561,6 +1677,7 @@ const PULLERS = {
   Frontage: pullFrontage,
   Nucleus: pullNucleus,
   "PPD/Thermo": pullPPDThermo,
+  "BioPharma Services": pullBioPharma,
 };
 
 // -------------------- Portal-reachability-only checks --------------------
@@ -1568,17 +1685,16 @@ const PULLERS = {
 // roster-DB per docs/DATA-SOURCES.md). We still visit with a cache-buster so a hard outage is
 // visible, but we never synthesize studies from an unconfirmed selector. Prior data is retained.
 //
-// story: fix-study-deep-links -- PPD/Thermo, Celerion, Altasciences, Nucleus, and Frontage moved
-// up into PULLERS above (all 5 confirmed live 2026-08-09 to publish real per-study detail pages).
-// Worldwide and BioPharma Services stay here: live-verified 2026-08-09, Worldwide's
+// story: fix-study-deep-links -- PPD/Thermo, Celerion, Altasciences, Nucleus, Frontage, and (this
+// story's acceptance criteria cover the WHOLE ranked table, not just the originally-named 8
+// networks) BioPharma Services all moved up into PULLERS above, each confirmed live 2026-08-09 to
+// publish real per-study detail pages. Worldwide stays here: live-verified 2026-08-09, its
 // /participate-in-a-study/ page shows its one open study's own id/BMI/pay inline but has no
 // separate per-study URL at all (an in-page anchor is the closest thing, and with only ever one
 // study open it's not a distinguishable "recipe" the way every PULLERS entry above is) -- kept
 // honest instead per this story's own risk note (a network can stay phone-only rather than force a
 // link that can't be trusted to keep meaning "this specific study" if a second one opens).
-// BioPharma Services (Toronto) was out of this story's 8-network scope and untouched.
 const PORTAL_ONLY_CHECK = {
-  "BioPharma Services": "https://biopharmaservices.com/volunteers/",
   Worldwide: "https://www.worldwide.com/participate-in-a-study/",
 };
 

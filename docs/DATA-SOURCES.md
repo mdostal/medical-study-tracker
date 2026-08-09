@@ -55,9 +55,10 @@ network sites" reasoning; each run is one page load per automated network plus a
 reachability check for the rest, well under anything that would look like scraping abuse.
 
 `scripts/pull-studies.mjs` currently has a **confirmed, live-verified DOM extraction recipe for
-nine networks**: ICON, Fortrea, Spaulding Clinical, JBR/CenExel's healthy-volunteer listing,
-Altasciences (all 3 sites), Celerion, Frontage, Nucleus Network, and PPD/Thermo Fisher (Trialmed)
-(each is one function in `scripts/pull-studies.mjs`, one per network's `pull_method` below).
+ten networks**: ICON, Fortrea, Spaulding Clinical, JBR/CenExel's healthy-volunteer listing,
+Altasciences (all 3 sites), Celerion, Frontage, Nucleus Network, PPD/Thermo Fisher (Trialmed), and
+BioPharma Services (each is one function in `scripts/pull-studies.mjs`, one per network's
+`pull_method` below).
 Those are the only networks in the table above whose portal, as of this writing, publishes a
 public, unauthenticated, enumerable study *listing* with a documented DOM structure — everything
 else in the table is phone-only, register-gated, or a roster/DB submission per that network's own
@@ -80,18 +81,21 @@ source_url, presented identically to a real per-study link; researched live and 
 one *does* publish real per-study detail pages after all, so they moved from "portal-reachability
 only" into the confirmed table above with their own recipes documented below. One correction this
 surfaced along the way: Celerion study "CA50785-5A"'s hand-entered `stays` was `[9]`; its own
-`/medical-study/` page states `STUDY LENGTH: 3 Night Stay & 2 Returns` — `[3]`. Two networks stay
-phone-only on purpose: **Worldwide** genuinely has no separate per-study URL (its one open study's
-own id/BMI/pay show inline on `/participate-in-a-study/`, with no distinguishable per-study
-address if a second study opens) and **BioPharma Services** was outside this story's 8-network
-scope — both keep the honest "call to apply" UI treatment (`components/ranked-table.tsx`) instead
-of a link.
+`/medical-study/` page states `STUDY LENGTH: 3 Night Stay & 2 Returns` — `[3]`. This story's own
+acceptance criteria cover the WHOLE ranked table, not only the 8 originally-named networks, so
+BioPharma Services (not one of the 8, but found with the exact same generic-URL-as-source_url
+issue) got the same treatment: it also publishes real `/volunteer/<slug>/` pages. **Worldwide**
+alone stays phone-only on purpose: it genuinely has no separate per-study URL (its one open
+study's own id/BMI/pay show inline on `/participate-in-a-study/`, with no distinguishable
+per-study address if a second study opens) — it keeps the honest "call to apply" UI treatment
+(`components/ranked-table.tsx`) instead of a link.
 
 | Network | Recipe |
 |---|---|
 | Altasciences KC | `participantskc.altasciences.com/available-studies` → per-study `/etudes/<id>` (same Drupal "Ajax Study Detail" module as MTL) |
 | Altasciences LA | `participantsla.altasciences.com/current-studies` (paginated) → per-study `/current-studies/<code>-en-1` |
 | Altasciences MTL | `participantsmtl.altasciences.com/en/available-studies` (English mirror) → per-study `/en/etudes/<id>` |
+| BioPharma Services | `biopharmaservices.com/volunteers/` → per-study `/volunteer/study-no-<slug>/`, via each card's own "Study Details" link |
 | Celerion | `helpresearch.com/` → per-study `/medical-study/<code>-<hash>`, filtered to US sites (Lincoln NE / Phoenix-Tempe AZ), Belfast UK excluded |
 | Frontage | `frontagelab.com/enroll-in-a-study/` → per-study `/clinical-studies/<slug>/`, only the "Apply for this study" links (the same URL namespace also hosts non-study "future consideration" funnel pages) |
 | Nucleus | `nucleusnetwork.com/participants/find-a-trial/?_trial_country_radio=us` (defaults to Australia without that query param) → per-study `/trial/<slug>/`, filtered to the Minneapolis (MSP) hub |
