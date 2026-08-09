@@ -513,5 +513,192 @@
       "discovered": "2026-08-09",
       "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
     }
+  ],
+  "_jalr_supplemental_info_comment": "Facts jalr.org's own per-clinic detail pages state that aren't yet in this file's confirmed `networks` entries (story: fix-study-deep-links, scripts/discover-networks.mjs). jalr.org is a community-run resource guide, NOT the CRO's own site -- these are real, attributed leads (never fabricated), not verified facts. Confirm by phone (or against the CRO's own live page) before promoting anything here into the `networks` entry above it. See docs/DATA-INTEGRITY.md.",
+  "jalr_supplemental_info": [
+    {
+      "network": "Altasciences",
+      "jalr_source_url": "https://jalr.org/full/ca_wcct_global.html",
+      "found": "2026-08-09",
+      "gaps": [
+        {
+          "field": "phone",
+          "jalr_value": "(866) 461-2526",
+          "note": "not among Altasciences's phone number(s) already in data/networks.json"
+        }
+      ]
+    },
+    {
+      "network": "Biotrial",
+      "jalr_source_url": "https://jalr.org/full/nj_biotrial.html",
+      "found": "2026-08-09",
+      "gaps": [
+        {
+          "field": "phone",
+          "jalr_value": "(844) 246-8459",
+          "note": "not among Biotrial's phone number(s) already in data/networks.json"
+        }
+      ]
+    },
+    {
+      "network": "Celerion",
+      "jalr_source_url": "https://jalr.org/full/az_celerion_tempe.html",
+      "found": "2026-08-09",
+      "gaps": [
+        {
+          "field": "phone",
+          "jalr_value": "(888) 257-9393",
+          "note": "not among Celerion's phone number(s) already in data/networks.json"
+        },
+        {
+          "field": "phone",
+          "jalr_value": "(877) 257-6926",
+          "note": "not among Celerion's phone number(s) already in data/networks.json"
+        },
+        {
+          "field": "payout_timing",
+          "jalr_value": "Checks drawn on Wells Fargo. Pay usually 3 days after completion of study.",
+          "note": "Celerion's data/networks.json entry doesn't currently document payout timing"
+        }
+      ]
+    },
+    {
+      "network": "Celerion",
+      "jalr_source_url": "https://jalr.org/full/ne_celerion_lincoln.html",
+      "found": "2026-08-09",
+      "gaps": [
+        {
+          "field": "phone",
+          "jalr_value": "(866) 445-7033",
+          "note": "not among Celerion's phone number(s) already in data/networks.json"
+        }
+      ]
+    },
+    {
+      "network": "Fortrea",
+      "jalr_source_url": "https://jalr.org/full/fortrea-daytona-beach-florida.html",
+      "found": "2026-08-09",
+      "gaps": [
+        {
+          "field": "phone",
+          "jalr_value": "(386) 366-6490",
+          "note": "not among Fortrea's phone number(s) already in data/networks.json"
+        },
+        {
+          "field": "payout_timing",
+          "jalr_value": "Provided within 21 days after end of study via check or direct deposit. Bring a voided check if you wish to have direct deposit. Multiple stipends may be issued on long studies.",
+          "note": "Fortrea's data/networks.json entry doesn't currently document payout timing"
+        }
+      ]
+    },
+    {
+      "network": "Fortrea",
+      "jalr_source_url": "https://jalr.org/full/fortrea-dallas-texas.html",
+      "found": "2026-08-09",
+      "gaps": [
+        {
+          "field": "payout_timing",
+          "jalr_value": "Provided within 21 days after end of study via check or direct deposit. Bring a voided check if you wish to have direct deposit. Multiple stipends may be issued on long studies.",
+          "note": "Fortrea's data/networks.json entry doesn't currently document payout timing"
+        }
+      ]
+    },
+    {
+      "network": "Fortrea",
+      "jalr_source_url": "https://jalr.org/full/fortrea-madison-wisconsin.html",
+      "found": "2026-08-09",
+      "gaps": [
+        {
+          "field": "phone",
+          "jalr_value": "(608) 210-5454",
+          "note": "not among Fortrea's phone number(s) already in data/networks.json"
+        }
+      ]
+    },
+    {
+      "network": "ICON",
+      "jalr_source_url": "https://jalr.org/full/icon-early-phase-service-in-lenexa-ks.html",
+      "found": "2026-08-09",
+      "gaps": [
+        {
+          "field": "phone",
+          "jalr_value": "(888)772-2808",
+          "note": "not among ICON's phone number(s) already in data/networks.json"
+        },
+        {
+          "field": "phone",
+          "jalr_value": "(913) 410-2900",
+          "note": "not among ICON's phone number(s) already in data/networks.json"
+        }
+      ]
+    },
+    {
+      "network": "ICON",
+      "jalr_source_url": "https://jalr.org/full/tx_icon_development_solutions.html",
+      "found": "2026-08-09",
+      "gaps": [
+        {
+          "field": "phone",
+          "jalr_value": "(877) 848-7425",
+          "note": "not among ICON's phone number(s) already in data/networks.json"
+        },
+        {
+          "field": "phone",
+          "jalr_value": "(210) 225-5437",
+          "note": "not among ICON's phone number(s) already in data/networks.json"
+        }
+      ]
+    },
+    {
+      "network": "ICON",
+      "jalr_source_url": "https://jalr.org/full/icon-early-phase-services-salt-lake-city-ut.html",
+      "found": "2026-08-09",
+      "gaps": [
+        {
+          "field": "phone",
+          "jalr_value": "(801) 821-2156",
+          "note": "not among ICON's phone number(s) already in data/networks.json"
+        },
+        {
+          "field": "phone",
+          "jalr_value": "(801) 269-8200",
+          "note": "not among ICON's phone number(s) already in data/networks.json"
+        }
+      ]
+    },
+    {
+      "network": "PPD / Thermo Fisher",
+      "jalr_source_url": "https://jalr.org/full/nv_ppd_las_vegas.html",
+      "found": "2026-08-09",
+      "gaps": [
+        {
+          "field": "phone",
+          "jalr_value": "(877) 773-3707",
+          "note": "not among PPD / Thermo Fisher's phone number(s) already in data/networks.json"
+        }
+      ]
+    },
+    {
+      "network": "PPD / Thermo Fisher",
+      "jalr_source_url": "https://jalr.org/full/tx_ppdi.html",
+      "found": "2026-08-09",
+      "gaps": [
+        {
+          "field": "phone",
+          "jalr_value": "(800) 773-2782",
+          "note": "not among PPD / Thermo Fisher's phone number(s) already in data/networks.json"
+        },
+        {
+          "field": "phone",
+          "jalr_value": "(512) 747-7928",
+          "note": "not among PPD / Thermo Fisher's phone number(s) already in data/networks.json"
+        },
+        {
+          "field": "payout_timing",
+          "jalr_value": "For short stays of 10 days or less, you will typically receive your money in a lump sum in the mail once the study is completed. For longer single stay studies, you will typically get most of the money on your last check out and the rest in the mail about two weeks later. For longer studies that are broken up into multiple periods, you will typically but not always, get a few checks, usually starting with your second and on stays and the rest in the mail once you complete the study. This is not guaranteed! This is just the way it’s been so far but the polices can always change. According to PPD written policy in the informed consent, they reserve the right to issue payment within 3 weeks of completion of study, so it is a courtesy that they offer multiple checks when time constraints allow.",
+          "note": "PPD / Thermo Fisher's data/networks.json entry doesn't currently document payout timing"
+        }
+      ]
+    }
   ]
 }

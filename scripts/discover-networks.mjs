@@ -216,14 +216,31 @@ function hasOverlap(setA, setB) {
  * -- matching on city/state alone is not enough, since unrelated companies routinely share a
  * metro (e.g. Miami, FL has both an existing CPMI entry and, per JALR, unrelated Quotient
  * Sciences / Syneos Health sites -- location-only matching would wrongly hide those as "known"). */
+/** Normalizes a phone string to bare digits so "(888) 257-9393", "888-257-9393", and
+ * "1-888-257-9393" all compare equal -- used only to detect whether a JALR-published number is
+ * genuinely NEW information, not to reformat anything we write. */
+export function digitsOnly(phone) {
+  return (phone ?? "").replace(/\D/g, "").replace(/^1(\d{10})$/, "$1");
+}
+
 function buildKnownEntries(networksJson) {
   const entries = [];
   const collect = (nets) => {
     for (const net of nets ?? []) {
       const words = new Set([...nameWords(net.name), ...nameWords(net.brand)]);
+      const phones = new Set(
+        [net.phone, ...(net.sites ?? []).map((s) => s.phone)].filter(Boolean).map(digitsOnly)
+      );
       for (const site of net.sites ?? []) {
         if (site.city && site.state) {
-          entries.push({ city: normalizeCity(site.city), state: site.state.toLowerCase(), words });
+          entries.push({
+            city: normalizeCity(site.city),
+            state: site.state.toLowerCase(),
+            words,
+            networkName: net.name,
+            phones,
+            payoutTimingKnown: /\d+[\s-]*(?:day|week)s?\b/i.test(`${net.pull_method ?? ""} ${net.notes ?? ""}`),
+          });
         }
       }
     }
@@ -245,6 +262,23 @@ function isAlreadyKnown(candidate, knownEntries) {
     if (!hasOverlap(candWords, e.words)) return false;
     return e.city === candCity || e.city.includes(candCity) || candCity.includes(e.city);
   });
+}
+
+/** Same matching rule as isAlreadyKnown, but returns WHICH known entry matched (its network name
+ * + every phone number data/networks.json already has for it) instead of a bare boolean --
+ * needed by the JALR-supplemental-detail pass below to know which confirmed network a clinic's
+ * detail page belongs to, and what we already have on file for it. */
+function findMatchingKnownEntry(candidate, knownEntries) {
+  const candWords = nameWords(candidate.name);
+  const candCity = normalizeCity(candidate.city);
+  const candState = candidate.state.toLowerCase();
+  return (
+    knownEntries.find((e) => {
+      if (e.state !== candState) return false;
+      if (!hasOverlap(candWords, e.words)) return false;
+      return e.city === candCity || e.city.includes(candCity) || candCity.includes(e.city);
+    }) ?? null
+  );
 }
 
 /** Groups newly-found clinic rows by clinic name (case-insensitive) into one discovered-network
@@ -297,6 +331,135 @@ async function filterReachable(rows) {
   return results;
 }
 
+// -------------------- JALR clinic-detail pass (story: fix-study-deep-links) ---------------------
+// "compare and pull all of the data jalr has as well" -- beyond bare clinic NAMES (the discovery
+// pass above), each individual jalr.org clinic page (e.g. jalr.org/full/az_celerion_tempe.html)
+// has its own "Current Studies provided by clinic" info box, a consistent template used across
+// every clinic on the site (confirmed live 2026-08-09 against Celerion-Tempe and Fortrea-Madison's
+// own pages) with real, attributable fields this tool doesn't otherwise have: an alternate/backup
+// phone number, and -- notably -- a "Payment:" line that sometimes states real payout timing
+// (Fortrea Madison: "Provided within 21 [days] after end of study"; Celerion: "Pay usually 3 days
+// after completion of study") where data/studies.seed.json's own payout.settle_days is "unknown"
+// for every row on both networks (docs/DATA-INTEGRITY.md Rule 5 -- payout timing is normally
+// phone-only). jalr.org is explicitly "only a resource guide" run by its community, not the CRO's
+// own site, so none of this is trusted enough to auto-write into the CRO-sourced studies.seed.json
+// (that file's whole provenance chain is "read live off the CRO's own page" -- mixing in a
+// third-party forum's numbers would blur that). Instead this pass only crawls clinics THIS TOOL
+// ALREADY KNOWS ABOUT (data/networks.json's confirmed `networks`), diffs what JALR states against
+// what's already on file, and records ONLY genuinely new facts (a phone not already listed, or a
+// payout-timing detail no existing network entry mentions) into a separate, clearly-attributed
+// `jalr_supplemental_info` block below -- same "never merged into confirmed data, a human promotes
+// it after actually confirming" shape as `discovered_networks` above, never fabricated or inferred.
+
+const JALR_DETAIL_MAX_CLINICS = 25; // bounds this pass's own HTTP load regardless of how many known clinics JALR lists
+
+/** Extracts the labeled "Label: value ... NextLabel:" fields from a JALR clinic detail page's own
+ * template (confirmed live 2026-08-09, same structure across every clinic sampled). Returns null
+ * for a field whose boundary labels aren't found rather than guessing at where it ends. */
+export function parseJalrClinicDetail(text) {
+  const field = (label, endLabel) => {
+    const re = new RegExp(`${label}:\\s*([\\s\\S]*?)\\s*${endLabel}:`, "i");
+    return text.match(re)?.[1]?.trim() || null;
+  };
+  const payment = field("Payment", "Attire");
+  const phonesBlock =
+    text.match(/Telephone Contact Numbers For Signing Up For A Study:\s*([\s\S]*?)Recruiting Hours/i)?.[1] ?? "";
+  const telephoneNumbers = [
+    ...new Set([...phonesBlock.matchAll(/\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/g)].map((m) => m[0])),
+  ];
+  return { payment, telephoneNumbers };
+}
+
+/** Pulls a payout-timing sentence out of a JALR "Payment:" field's own text -- ONLY when it
+ * literally states a unit ("day(s)"/"week(s)"); e.g. Fortrea Madison's own "Provided within 21
+ * after end of study" (no stated unit -- ambiguous, dropped rather than assumed to mean days) vs.
+ * Celerion's "Pay usually 3 days after completion of study" (kept). Never invents a unit JALR's
+ * own text didn't state. */
+export function extractJalrPayoutTiming(paymentText) {
+  if (!paymentText) return null;
+  return /\b\d+\s*(?:days?|weeks?)\b/i.test(paymentText) ? paymentText : null;
+}
+
+/** Crawls every JALR clinic row that matches an ALREADY-KNOWN network (never a `discovered_networks`
+ * candidate -- those have no confirmed data to compare against yet), diffs its own detail page
+ * against what data/networks.json already has on file, and returns one entry per clinic that
+ * surfaced at least one genuinely new fact. Never throws on an individual page failing to load --
+ * logs and skips it, same partial-failure shape as scripts/pull-studies.mjs. */
+async function crawlJalrSupplementalInfo(clinics, known, today) {
+  const matched = [];
+  for (const c of clinics) {
+    const entry = findMatchingKnownEntry(c, known);
+    if (entry) matched.push({ clinic: c, entry });
+  }
+  log(`${matched.length} JALR clinic rows match an already-confirmed network; checking up to ${JALR_DETAIL_MAX_CLINICS} of their own detail pages for facts not already on file...`);
+
+  const results = [];
+  for (const { clinic, entry } of matched.slice(0, JALR_DETAIL_MAX_CLINICS)) {
+    let html;
+    try {
+      const res = await fetch(clinic.source_url, { headers: { "User-Agent": USER_AGENT } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      html = await res.text();
+    } catch (err) {
+      warnAnnotation(`JALR supplemental pass: couldn't read ${clinic.source_url} (${err.message}) -- skipped.`);
+      continue;
+    }
+    const text = stripTags(html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " "));
+    const detail = parseJalrClinicDetail(text);
+
+    const gaps = [];
+    for (const phone of detail.telephoneNumbers) {
+      if (!entry.phones.has(digitsOnly(phone))) {
+        gaps.push({ field: "phone", jalr_value: phone, note: `not among ${entry.networkName}'s phone number(s) already in data/networks.json` });
+      }
+    }
+    const payoutTiming = extractJalrPayoutTiming(detail.payment);
+    if (payoutTiming && !entry.payoutTimingKnown) {
+      gaps.push({
+        field: "payout_timing",
+        jalr_value: payoutTiming,
+        note: `${entry.networkName}'s data/networks.json entry doesn't currently document payout timing`,
+      });
+    }
+
+    if (gaps.length > 0) {
+      results.push({
+        network: entry.networkName,
+        jalr_source_url: clinic.source_url,
+        found: today,
+        gaps,
+      });
+    }
+  }
+  return results;
+}
+
+// Same "strip this script's own previously-appended block, then re-append the freshly-computed
+// one" shape as the discovered_networks block above -- keeps data/networks.json's hand-curated
+// `networks` array byte-for-byte untouched across repeated runs.
+const JALR_SUPPLEMENTAL_BLOCK_RE =
+  /,\s*"_jalr_supplemental_info_comment"\s*:\s*"(?:[^"\\]|\\.)*"\s*,\s*"jalr_supplemental_info"\s*:\s*\[[\s\S]*?\]\s*(\}\s*)$/;
+
+function stripExistingJalrSupplementalBlock(raw) {
+  return raw.replace(JALR_SUPPLEMENTAL_BLOCK_RE, "$1");
+}
+
+function appendJalrSupplementalBlock(raw, supplemental) {
+  const comment =
+    "Facts jalr.org's own per-clinic detail pages state that aren't yet in this file's confirmed " +
+    "`networks` entries (story: fix-study-deep-links, scripts/discover-networks.mjs). jalr.org is a " +
+    "community-run resource guide, NOT the CRO's own site -- these are real, attributed leads " +
+    "(never fabricated), not verified facts. Confirm by phone (or against the CRO's own live page) " +
+    "before promoting anything here into the `networks` entry above it. See docs/DATA-INTEGRITY.md.";
+  const entriesJson = supplemental
+    .map((d) => JSON.stringify(d, null, 2).replace(/^/gm, "    ").trimStart())
+    .join(",\n    ");
+  const block =
+    `  "_jalr_supplemental_info_comment": ${JSON.stringify(comment)},\n` +
+    `  "jalr_supplemental_info": [\n    ${entriesJson}\n  ]\n}\n`;
+  return raw.replace(/\]\s*\}\s*$/, "],\n" + block);
+}
+
 async function main() {
   log(`Fetching ${JALR_URL} ...`);
   const res = await fetch(JALR_URL, { headers: { "User-Agent": USER_AGENT } });
@@ -329,18 +492,39 @@ async function main() {
     );
   }
 
+  const supplemental = await crawlJalrSupplementalInfo(clinics, known, today);
+  supplemental.sort((a, b) => a.network.localeCompare(b.network));
+  for (const s of supplemental) {
+    log(`JALR DETAIL  ${s.network} -- ${s.gaps.map((g) => `${g.field}: ${g.jalr_value}`).join("; ")}`);
+  }
+
   if (DRY_RUN) {
-    log(`Dry run -- would write ${discovered.length} discovered_networks entries (not writing).`);
+    log(`Dry run -- would write ${discovered.length} discovered_networks entries and ${supplemental.length} jalr_supplemental_info entries (not writing).`);
     return;
   }
 
-  const newRaw = appendDiscoveredBlock(stripExistingDiscoveredBlock(raw), discovered);
+  // Strip in the REVERSE of append order: jalr_supplemental_info is appended LAST (so on a prior
+  // run's output it sits outermost, nearest the file's final "}"), and each strip regex is
+  // anchored to the literal end of the file -- stripping discovered_networks first would silently
+  // no-op (its own block is no longer at the end once a jalr block follows it), leaving a stale
+  // copy behind instead of replacing it.
+  const pristine = stripExistingDiscoveredBlock(stripExistingJalrSupplementalBlock(raw));
+  let newRaw = appendDiscoveredBlock(pristine, discovered);
+  newRaw = appendJalrSupplementalBlock(newRaw, supplemental);
   JSON.parse(newRaw); // fail loudly before writing if the string surgery produced invalid JSON
   await writeFile(NETWORKS_PATH, newRaw, "utf-8");
-  log(`Wrote ${discovered.length} discovered_networks entries to ${NETWORKS_PATH}`);
+  log(`Wrote ${discovered.length} discovered_networks entries and ${supplemental.length} jalr_supplemental_info entries to ${NETWORKS_PATH}`);
 }
 
-main().catch((err) => {
-  console.error("[discover-networks] fatal error:", err);
-  process.exit(1);
-});
+// Only run main() when this file is executed directly (`node scripts/discover-networks.mjs`) --
+// not when a test file imports this module's exported pure parsers above (story:
+// fix-study-deep-links -- lib/__tests__/fix-study-deep-links.test.ts). Before this guard, ANY
+// import of this file ran a live jalr.org crawl and could write to data/networks.json as a side
+// effect of module load -- exactly the "importable without side effects" shape
+// scripts/pull-studies.mjs and scripts/aggregate-corrections.mjs already use.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error("[discover-networks] fatal error:", err);
+    process.exit(1);
+  });
+}

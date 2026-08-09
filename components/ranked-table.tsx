@@ -107,6 +107,54 @@ function FlagBadge({ children }: { children: React.ReactNode }) {
   );
 }
 
+// story: fix-study-deep-links -- a real user clicked a study link and landed on a network's
+// generic homepage instead of the specific study, because a network with no real per-study page
+// had its homepage/search URL stored as source_url and rendered exactly like every genuine
+// per-study link. `studyLinkHref` below is the ONE place that decides "does this row get a real
+// hyperlink on its id", so every render path (top ranked table, "apply" column, bottom
+// not-eligible table) makes that call the same way — never disguising a network-level URL as a
+// study-specific one again. A phone-only/register-gated row instead gets its phone number shown
+// prominently (as an actual tel: link, so it's still one tap to call) plus, only if the network
+// itself has one, a small, honestly-labeled "network info" pointer that is never presented as if
+// it opens this specific study.
+function studyLinkHref(s: ScoredStudy): string | undefined {
+  return s.source_url ?? s.apply_url;
+}
+
+function telHref(phone: string): string {
+  return `tel:${phone.replace(/[^\d+]/g, "")}`;
+}
+
+function CallToApplyBadge({ phone, networkUrl }: { phone?: string; networkUrl?: string }) {
+  if (!phone && !networkUrl) return null;
+  return (
+    <div className="mt-1 flex flex-col items-start gap-0.5">
+      <span className="inline-block rounded border border-sky-600/40 bg-sky-500/10 px-1.5 py-0.5 font-mono text-[0.6rem] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-400">
+        call to apply
+      </span>
+      {phone && (
+        <a
+          href={telHref(phone)}
+          className="font-mono text-[0.68rem] font-semibold text-foreground underline decoration-sky-600/40 underline-offset-2 hover:decoration-foreground"
+        >
+          {phone}
+        </a>
+      )}
+      {networkUrl && (
+        <a
+          href={networkUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="The network's general/homepage or search page -- not a page for this specific study."
+          className="font-mono text-[0.58rem] text-muted-foreground underline decoration-dotted hover:text-foreground"
+        >
+          network info (not a study page) &rarr;
+        </a>
+      )}
+    </div>
+  );
+}
+
 // Story add-study-by-url AC4: a user-added study must be "visually distinct
 // from the seed data so it's not confused with verified network listings" —
 // this badge is the only thing that distinguishes an s.user_added row;
@@ -243,20 +291,26 @@ function buildColumnRender(overlay: CommunityCorrectionsFile | null): Record<Col
   study: {
     render: (s) => {
       const bmi = getFieldConsensus(overlay, s.id, "bmi_range");
+      const link = studyLinkHref(s);
       return (
         <>
-          <a
-            href={s.source_url ?? s.apply_url ?? "#"}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium text-accent-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
-          >
-            {s.id}
-          </a>
+          {link ? (
+            <a
+              href={link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-accent-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
+            >
+              {s.id}
+            </a>
+          ) : (
+            <span className="font-medium">{s.id}</span>
+          )}
           <div className="font-mono text-[0.62rem] text-muted-foreground">
             {s.network} · {s.city}, {s.state}
             {s.hub ? ` · ${s.hub}` : ""}
           </div>
+          {!link && <CallToApplyBadge phone={s.phone} networkUrl={s.network_url} />}
           {s.user_added && (
             <div className="mt-1">
               <UserAddedBadge />
@@ -384,19 +438,34 @@ function buildColumnRender(overlay: CommunityCorrectionsFile | null): Record<Col
     },
   },
   apply: {
-    render: (s) =>
-      s.apply_url ?? s.source_url ? (
-        <a
-          href={s.apply_url ?? s.source_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded border border-emerald-600/40 px-1.5 py-0.5 font-mono text-[0.62rem] text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
-        >
-          {s.apply_url ? "apply" : "source"}&nbsp;&rarr;
-        </a>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      ),
+    render: (s) => {
+      const link = studyLinkHref(s);
+      if (link) {
+        return (
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded border border-emerald-600/40 px-1.5 py-0.5 font-mono text-[0.62rem] text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
+          >
+            {s.apply_url ? "apply" : "source"}&nbsp;&rarr;
+          </a>
+        );
+      }
+      // No real per-study page (see studyLinkHref's comment above) — a phone number is an honest,
+      // still-actionable call to apply; never falls back to a network homepage link here either.
+      if (s.phone) {
+        return (
+          <a
+            href={telHref(s.phone)}
+            className="rounded border border-sky-600/40 px-1.5 py-0.5 font-mono text-[0.62rem] text-sky-700 hover:bg-sky-500/10 dark:text-sky-400"
+          >
+            call&nbsp;&rarr;
+          </a>
+        );
+      }
+      return <span className="text-muted-foreground">—</span>;
+    },
   },
   phone: {
     render: (s) => s.phone ?? "—",
@@ -719,9 +788,9 @@ export function RankedTable({
               {filteredBlocked.map((s) => (
                 <TableRow key={s.id} className="opacity-60 hover:opacity-100">
                   <TableCell className="font-medium">
-                    {s.source_url ?? s.apply_url ? (
+                    {studyLinkHref(s) ? (
                       <a
-                        href={s.source_url ?? s.apply_url}
+                        href={studyLinkHref(s)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline decoration-muted-foreground/40 underline-offset-2"
@@ -734,6 +803,7 @@ export function RankedTable({
                     <div className="font-mono text-[0.62rem] text-muted-foreground">
                       {s.network}
                     </div>
+                    {!studyLinkHref(s) && <CallToApplyBadge phone={s.phone} networkUrl={s.network_url} />}
                     {s.user_added && (
                       <div className="mt-1">
                         <UserAddedBadge />

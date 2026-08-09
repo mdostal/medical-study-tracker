@@ -39,8 +39,19 @@ export interface Study {
   eligible?: boolean;      // precomputed in seed for clearly-blocked studies
   exclude_reason?: string;
   status?: string;         // enrolling | upcoming | closed | verify
+  // A real, resolving, per-STUDY detail page — the actual study's own page, not a search page or
+  // a network homepage (docs/DATA-INTEGRITY.md Rule 1). Leave unset when no such page exists;
+  // never fill it with a generic/listing URL "close enough" to stand in for one (story:
+  // fix-study-deep-links — that exact substitution is what sent a real user to a network homepage
+  // instead of their study). components/ranked-table.tsx only ever hyperlinks the study id/row
+  // when this is set.
   source_url?: string;
   apply_url?: string;
+  // The network's own general/homepage or search-listing page — shown ONLY as a plainly-labeled
+  // "network info" pointer alongside a "call to apply" treatment when source_url is unset (a
+  // network that's genuinely phone-only or register-gated, with no per-study page to link to).
+  // Never used as a stand-in for source_url — see that field's own comment.
+  network_url?: string;
   phone?: string;
   verified?: string;
   notes?: string;
