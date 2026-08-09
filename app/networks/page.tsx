@@ -37,7 +37,30 @@ interface Network {
   verified?: string;
 }
 
+// story: directory-gap-discovery -- scripts/discover-networks.mjs crawls jalr.org's clinic
+// directory and diffs it against the confirmed `networks` array above, writing anything not
+// already covered into this separate `discovered_networks` array. Deliberately a distinct shape
+// from Network (no portal/phone/pay -- per docs/DATA-INTEGRITY.md, nothing here is fabricated;
+// it's a name, a location, and a link to go check yourself).
+interface DiscoveredSite {
+  city: string;
+  state: string;
+  country?: string;
+}
+
+interface DiscoveredNetwork {
+  name: string;
+  status: string;
+  sites: DiscoveredSite[];
+  source_url: string;
+  discovered: string;
+  note?: string;
+}
+
 const NETWORKS = (networksData as unknown as { networks: Network[] }).networks;
+const DISCOVERED_NETWORKS =
+  (networksData as unknown as { discovered_networks?: DiscoveredNetwork[] })
+    .discovered_networks ?? [];
 
 function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value.trim());
@@ -173,6 +196,41 @@ function NetworkCard({ network }: { network: Network }) {
       {network.notes && (
         <p className="text-[0.78rem] text-muted-foreground">{network.notes}</p>
       )}
+    </div>
+  );
+}
+
+// story: directory-gap-discovery -- deliberately a visually distinct, dimmed card: no portal/
+// phone columns (there isn't any confirmed data to show), one badge that's impossible to confuse
+// with the "verify" badge above (different label, different color), and the JALR/source link is
+// the ONLY link -- there's nothing else about a discovered entry that's been checked yet.
+function DiscoveredNetworkCard({ network }: { network: DiscoveredNetwork }) {
+  return (
+    <div className="space-y-2 rounded-xl border border-dashed bg-muted/20 p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="font-medium text-muted-foreground">{network.name}</h3>
+        <span className="rounded border border-sky-600/30 bg-sky-500/10 px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-wide text-sky-700 dark:text-sky-400">
+          discovered — not yet verified
+        </span>
+      </div>
+      <p className="font-mono text-[0.72rem] text-muted-foreground">
+        {network.sites
+          .map((s) => `${s.city}, ${s.state}${s.country && s.country !== "US" ? ` (${s.country})` : ""}`)
+          .join(" · ")}
+      </p>
+      <p className="text-[0.74rem] text-muted-foreground">
+        Found via{" "}
+        <a
+          href={network.source_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+        >
+          jalr.org listing
+        </a>{" "}
+        ({network.discovered}). No pay, eligibility, or study data exists for this entry yet —
+        confirm directly before relying on it.
+      </p>
     </div>
   );
 }
@@ -363,6 +421,84 @@ export default function NetworksPage() {
           <NetworkCard key={network.name} network={network} />
         ))}
       </div>
+
+      {DISCOVERED_NETWORKS.length > 0 && (
+        <section className="mx-auto max-w-[1100px] space-y-3">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold tracking-tight">
+              Discovered — not yet verified
+            </h2>
+            <p className="max-w-[70ch] text-sm text-muted-foreground">
+              Found by crawling{" "}
+              <a
+                href="https://jalr.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+              >
+                jalr.org
+              </a>
+              &apos;s clinic directory and diffing it against the confirmed list above
+              (<code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]">
+                scripts/discover-networks.mjs
+              </code>
+              ). These are names and locations only — nobody has called or visited yet, so there
+              is no pay, eligibility, or study data for any of them. Treat each one as a lead to
+              check, not a listing to trust.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {DISCOVERED_NETWORKS.map((network) => (
+              <DiscoveredNetworkCard key={network.name} network={network} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="mx-auto max-w-[1100px] space-y-3 rounded-xl border bg-card p-5">
+        <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Other resources
+        </h2>
+        <p className="max-w-[70ch] text-sm text-muted-foreground">
+          Complementary cross-reference tools — not competitors — worth checking directly if this
+          directory doesn&apos;t have what you&apos;re looking for. Neither publishes structured
+          pay/eligibility data the way the networks above do, so nothing from these is pulled into
+          this tool&apos;s ranking; they&apos;re just good places to look further.
+        </p>
+        <ul className="space-y-2 text-sm">
+          <li>
+            <a
+              href="https://jalr.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+            >
+              jalr.org
+            </a>{" "}
+            <span className="text-muted-foreground">
+              — &ldquo;Just Another Lab Rat!&rdquo;, a community-run directory + forum covering
+              Phase-1 clinics nationally, plus separate directories for university-run and
+              patient (Phase II-IV) clinics. The source for the &ldquo;discovered&rdquo; entries
+              above.
+            </span>
+          </li>
+          <li>
+            <a
+              href="https://studyscavenger.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+            >
+              Study Scavenger
+            </a>{" "}
+            <span className="text-muted-foreground">
+              — a patient/volunteer-facing trial-matching search (by zip code, compensation, or
+              health condition) run by the same team that maintains jalr.org&apos;s clinic
+              listings.
+            </span>
+          </li>
+        </ul>
+      </section>
 
       <section className="mx-auto max-w-[1100px] space-y-3 rounded-xl border bg-card p-5">
         <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">

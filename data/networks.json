@@ -103,5 +103,415 @@
       "portal":"https://kgkscience.com/participants/", "phone":"email sales@kgkscience.com",
       "notes":"Nutraceutical/supplement studies, low/undisclosed pay. Deprioritize.",
       "verified":"2026-08-08" }
+  ],
+  "_discovered_networks_comment": "Found via jalr.org directory crawl (scripts/discover-networks.mjs, story: directory-gap-discovery) -- names + locations only, NOT yet called or verified. No pay, eligibility, or study data exists for these entries; see docs/DATA-INTEGRITY.md. Promote an entry to `networks` above only after actually confirming it (call/visit/live site check).",
+  "discovered_networks": [
+    {
+      "name": "AbbVie",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Grayslake",
+          "state": "IL",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/il_abbvie.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Analab",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Lenexa",
+          "state": "KS",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/ks_analab.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Axis Clinicals",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Fargo",
+          "state": "ND",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/nd_axis-clinicals-fargo.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "BioPharma Services",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "St. Louis",
+          "state": "MO",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/mo_biopharma_services.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Clinical Trials Center",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "High Point",
+          "state": "NC",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/nc_high_point_clinical_trials_center.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Clinilabs",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Eatontown",
+          "state": "NJ",
+          "country": "US"
+        },
+        {
+          "city": "New York City",
+          "state": "NY",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/nj_clinilabs_eatontown.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "CVD",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Baltimore",
+          "state": "MD",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/center-vaccine-development-global-health-baltimore-md.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Inflamax Research",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Neptune",
+          "state": "NJ",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/nj_Inflamax_Research_neptune.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "IQVIA (QuintilesIMS)",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Overland Park",
+          "state": "KS",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/ks_quintilesIMS.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "JCCT",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Lenexa",
+          "state": "KS",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/ks_johnson_county_clin_trials.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Medpace",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Cincinnati",
+          "state": "OH",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/oh_medpace.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "New Horizons Clinical Research",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Cincinnati",
+          "state": "OH",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/new-horizons-cincinnati-oh-clinical-research.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "NOCCR",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Knoxville",
+          "state": "TN",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/tn_noccr_knoxville.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Novum",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Las Vegas",
+          "state": "NV",
+          "country": "US"
+        },
+        {
+          "city": "Fargo",
+          "state": "ND",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/nv_novum_las_vegas.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Ohio Clinical Trials",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Columbus",
+          "state": "OH",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/oh_ohio_clinical_trials.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Parexel",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Baltimore",
+          "state": "MD",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/md_parexel_baltimore.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Parexel Early Phase Unit",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Glendale",
+          "state": "CA",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/ca_parexel_glendale.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Pfizer",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "New Haven",
+          "state": "CT",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/ct_pfizer_new_haven_cru.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Pharma Medica Research",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "St Charles",
+          "state": "MO",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/mo_pharma_medica.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Pharmaron",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Baltimore",
+          "state": "MD",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/md_snbl_baltimore.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Prism Research",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "St Paul",
+          "state": "MN",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/mn_prisim_research.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "QPS Bio Kinetic",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Springfield",
+          "state": "MO",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/mo_bio_kinetic.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Quotient Sciences",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Jacksonville",
+          "state": "FL",
+          "country": "US"
+        },
+        {
+          "city": "Miami",
+          "state": "FL",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/fl_seaview_research_jacksonville.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Syneos Health",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Miami",
+          "state": "FL",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/syneos-health-clinical-trials-medical-research-clinic-miami-florida.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "TKL Research",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Fair Lawn",
+          "state": "NJ",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/nj_tkl_Research_fairlawn.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Vince & Associates",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Overland Park",
+          "state": "KS",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/ks_vince_and_associates.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "Walter Reed Army Institute of Research",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Baltimore",
+          "state": "MD",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/walter-reed-army-institute-of-research-in-baltimore.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    },
+    {
+      "name": "WVUCPRC",
+      "status": "discovered-unverified",
+      "sites": [
+        {
+          "city": "Morgantown",
+          "state": "WV",
+          "country": "US"
+        }
+      ],
+      "source_url": "https://jalr.org/full/wv_wvucprc.html",
+      "discovered": "2026-08-09",
+      "note": "Found via jalr.org directory crawl (story: directory-gap-discovery). Not yet called/verified -- no pay, eligibility, or study data exists for this entry. Check the source_url directly before relying on it."
+    }
   ]
 }

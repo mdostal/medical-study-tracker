@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "pull-studies": "node scripts/pull-studies.mjs"
+    "pull-studies": "node scripts/pull-studies.mjs",
+    "discover-networks": "node scripts/discover-networks.mjs"
   },
   "engines": {
     "node": ">=20"
