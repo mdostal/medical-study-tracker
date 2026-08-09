@@ -1,0 +1,99 @@
+name: Aggregate community corrections
+
+# Reads open+closed GitHub issues labeled "data-correction" (created by
+# app/api/submit-correction/route.ts on a visitor's no-login form submission),
+# computes consensus (scripts/aggregate-corrections.mjs), and commits the
+# regenerated data/community-corrections.json directly to the branch this
+# workflow runs on when it changed -- same pattern as
+# .github/workflows/daily-study-refresh.yml. Vercel's git integration
+# auto-redeploys on push once this lands on the repo's default branch.
+#
+# NO owner-approval step anywhere in this job: consensus is computed purely
+# from independent issue agreement (see scripts/aggregate-corrections.mjs's
+# own header comment). The job's only "write" actions are labeling/closing
+# issues it already parsed -- never asking a human to approve anything.
+#
+# Note: GitHub only fires `schedule` triggers from the workflow file on the
+# repo's *default* branch. While this is landing on
+# feat/community-data-layer (pre-merge), the cron won't actually fire;
+# `workflow_dispatch` (manual) still works from any branch, which is how this
+# story's test step dry-runs it. Once merged to main the cron activates
+# automatically -- no workflow change needed. Same caveat as
+# daily-study-refresh.yml documents for itself.
+#
+# Story: .pHive/epics/community-data-layer/stories/community-corrections-consensus.yaml
+
+on:
+  schedule:
+    # Every 6 hours, offset from daily-study-refresh's :13 so the two jobs
+    # never start in the exact same minute. Corrections volume is expected to
+    # be low (a no-login form on a niche tool), so a daily cadence would also
+    # be defensible -- 6h keeps a visitor's "did my report lock in yet?"
+    # feedback loop reasonably tight without adding real request volume
+    # (this job makes a handful of GitHub API calls to its own repo, not an
+    # external site).
+    - cron: "17 */6 * * *"
+  workflow_dispatch: {} # manual trigger, for the story's "dry-run the workflow" test step
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: aggregate-corrections
+  cancel-in-progress: false
+
+jobs:
+  aggregate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run aggregation
+        run: node scripts/aggregate-corrections.mjs
+        env:
+          # The workflow's own ambient token -- issues:write scope granted via
+          # `permissions:` above, same repo only. NOT the separate
+          # GITHUB_CORRECTIONS_TOKEN Vercel env var (see
+          # app/api/submit-correction/route.ts) -- that one is for the
+          # serverless function running outside GitHub Actions.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet -- data/community-corrections.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push regenerated overlay
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/community-corrections.json
+          git commit -m "Aggregate community corrections: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          Automated consensus recompute via scripts/aggregate-corrections.mjs (GitHub Actions cron).
+          No manual review -- confidence is earned purely through independent agreement between
+          open GitHub issues labeled data-correction. data/studies.seed.json is never touched by
+          this job; see lib/community-overlay.ts for how the UI merges the two at render time."
+          git push origin "HEAD:${{ github.ref_name }}"
+
+      - name: No changes
+        if: steps.diff.outputs.changed == 'false'
+        run: echo "No consensus changes this run -- nothing to commit."

@@ -13,10 +13,22 @@ import { ShareButton } from "@/components/share-button";
 import { StackSuggesterPanel } from "@/components/stack-suggester-panel";
 import studiesSeed from "@/data/studies.seed.json";
 import friendChildcareMap from "@/data/friend-childcare-map.json";
+import communityCorrectionsFile from "@/data/community-corrections.json";
+import { sanitizeCommunityCorrectionsFile } from "@/lib/community-overlay";
 
 // Real, public seed data (data/studies.seed.json) — not fabricated, per
 // docs/DATA-INTEGRITY.md. The `_comment` key is metadata, not a study.
 const STUDIES = studiesSeed.studies as unknown as Study[];
+
+// Story community-corrections-consensus: data/community-corrections.json is a
+// GENERATED overlay (scripts/aggregate-corrections.mjs, run on a schedule by
+// .github/workflows/aggregate-corrections.yml) — sanitized once at module
+// load the same way STUDIES above is treated as trusted-but-defensively-typed
+// JSON, then handed to RankedTable as a plain read-only prop. This file never
+// gets written to from the browser and data/studies.seed.json is never
+// touched by it — the two stay separate on disk; this is the one place they
+// join, at render time, per lib/community-overlay.ts's own header comment.
+const COMMUNITY_OVERLAY = sanitizeCommunityCorrectionsFile(communityCorrectionsFile);
 
 // Generic example profile — the entire app works fully anonymously (no
 // sign-in of any kind exists, design-discussion.md §9). A real visitor's own
@@ -167,6 +179,7 @@ export default function Home() {
           blocked={blocked}
           profile={DEMO_PROFILE}
           maxAwayNights={assumptions.max_away_nights}
+          communityOverlay={COMMUNITY_OVERLAY}
         />
       </div>
     </div>

@@ -14,6 +14,13 @@ import {
 } from "@/components/ui/table";
 import { StatusPill } from "@/components/status-pill";
 import { ColumnConfigMenu } from "@/components/column-config";
+import { CorrectionForm } from "@/components/correction-form";
+import {
+  formatCorrectionValue,
+  getFieldConsensus,
+  type CommunityCorrectionsFile,
+  type CommunityFieldConsensus,
+} from "@/lib/community-overlay";
 import {
   ALL_COLUMNS,
   DEFAULT_COLUMN_CONFIG,
@@ -112,6 +119,80 @@ function UserAddedBadge() {
   );
 }
 
+// Story community-corrections-consensus AC5/AC6: a community-confirmed value
+// renders visually distinct from CRO-sourced data (never conflated -- this
+// badge never replaces the base dataset's own value, it sits alongside it),
+// and a disputed field always shows EVERY reported value + count, never
+// silently resolved to one. `consensus` comes from data/community-
+// corrections.json via lib/community-overlay.ts's getFieldConsensus --
+// purely a read of an already-computed result, no logic lives here.
+function CommunityBadge({ consensus }: { consensus: CommunityFieldConsensus | undefined }) {
+  if (!consensus) return null;
+
+  if (consensus.status === "community-confirmed") {
+    const v = consensus.values[0];
+    return (
+      <span
+        title={`${consensus.confidence} independent community reports agree on this value.`}
+        className="inline-flex items-center gap-1 rounded border border-emerald-600/40 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[0.58rem] font-semibold text-emerald-700 dark:text-emerald-400"
+      >
+        ✓ community {formatCorrectionValue(consensus.field, v.value)} · {consensus.confidence} reports
+      </span>
+    );
+  }
+
+  if (consensus.status === "disputed") {
+    const detail = consensus.values
+      .map((v) => `${formatCorrectionValue(consensus.field, v.value)} ×${v.count}`)
+      .join(", ");
+    return (
+      <span
+        title={`Disputed -- conflicting community reports: ${detail}. Never silently resolved to one value.`}
+        className="inline-flex items-center gap-1 rounded border border-red-600/40 bg-red-500/10 px-1.5 py-0.5 font-mono text-[0.58rem] font-semibold text-red-700 dark:text-red-400"
+      >
+        ⚠ disputed: {detail}
+      </span>
+    );
+  }
+
+  // unverified -- a single report so far, shown at low confidence per this
+  // story's explicit spec ("1 report, unverified"), never hidden.
+  const v = consensus.values[0];
+  return (
+    <span
+      title="Only one community report so far -- not yet confirmed (needs a 2nd independent agreeing report)."
+      className="inline-flex items-center gap-1 rounded border border-sky-600/40 bg-sky-500/10 px-1.5 py-0.5 font-mono text-[0.58rem] text-sky-700 dark:text-sky-400"
+    >
+      1 report (unverified): {formatCorrectionValue(consensus.field, v.value)}
+    </span>
+  );
+}
+
+// Per-row "report a correction" trigger + inline form (story: community-
+// corrections-consensus AC1). Owns its own open/closed state locally rather
+// than being lifted into RankedTable's state -- each row's correction UI is
+// fully independent, so there's no need to thread an "which row is open" id
+// through the table component itself.
+function CorrectionTrigger({ studyId, network }: { studyId: string; network: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="font-mono text-[0.58rem] text-muted-foreground underline decoration-dotted hover:text-foreground"
+      >
+        {open ? "cancel" : "report a correction"}
+      </button>
+      {open && (
+        <div className="mt-2 w-[340px] max-w-[90vw]">
+          <CorrectionForm studyId={studyId} studyLabel={network} onClose={() => setOpen(false)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TripBadge({ drivable }: { drivable: boolean }) {
   return (
     <span
@@ -146,56 +227,94 @@ type ColumnRenderer = {
   render: (s: ScoredStudy, i: number) => React.ReactNode;
 };
 
-const COLUMN_RENDER: Record<ColumnId, ColumnRenderer> = {
+// Factory rather than a module-level constant: the "study", "payout",
+// "nights", and "flags" renderers below need the community-corrections
+// overlay (a RankedTable prop, not a module-level value) to decide whether
+// to show a community badge and/or supersede a base-dataset "confirm on
+// call"-style flag (story: community-corrections-consensus AC5) — everything
+// else is unchanged from before that story. Called once per render via
+// useMemo in RankedTable below.
+function buildColumnRender(overlay: CommunityCorrectionsFile | null): Record<ColumnId, ColumnRenderer> {
+  return {
   rank: {
     align: "right",
     render: (_s, i) => i + 1,
   },
   study: {
-    render: (s) => (
-      <>
-        <a
-          href={s.source_url ?? s.apply_url ?? "#"}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-medium text-accent-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
-        >
-          {s.id}
-        </a>
-        <div className="font-mono text-[0.62rem] text-muted-foreground">
-          {s.network} · {s.city}, {s.state}
-          {s.hub ? ` · ${s.hub}` : ""}
-        </div>
-        {s.user_added && (
-          <div className="mt-1">
-            <UserAddedBadge />
+    render: (s) => {
+      const bmi = getFieldConsensus(overlay, s.id, "bmi_range");
+      return (
+        <>
+          <a
+            href={s.source_url ?? s.apply_url ?? "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-accent-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
+          >
+            {s.id}
+          </a>
+          <div className="font-mono text-[0.62rem] text-muted-foreground">
+            {s.network} · {s.city}, {s.state}
+            {s.hub ? ` · ${s.hub}` : ""}
           </div>
-        )}
-      </>
-    ),
+          {s.user_added && (
+            <div className="mt-1">
+              <UserAddedBadge />
+            </div>
+          )}
+          {bmi && (
+            <div className="mt-1">
+              <CommunityBadge consensus={bmi} />
+            </div>
+          )}
+          <div className="mt-1">
+            <CorrectionTrigger studyId={s.id} network={s.network} />
+          </div>
+        </>
+      );
+    },
   },
   gross: {
     align: "right",
     render: (s) => fmtGross(s.pay_gross, s.currency),
   },
   payout: {
-    render: (s) => (
-      <>
-        <div>
-          {s.payout.type} · {s.settle_days}d
-        </div>
-        {s.payout_unconfirmed && <FlagBadge>confirm on call</FlagBadge>}
-      </>
-    ),
+    render: (s) => {
+      const consensus = getFieldConsensus(overlay, s.id, "payout.settle_days");
+      // A locked-in community-confirmed value supersedes the base dataset's
+      // own "confirm on call" flag (AC5) — disputed/unverified results are
+      // shown *alongside* it instead, since neither of those resolve the
+      // base flag's own uncertainty.
+      const supersedesFlag = consensus?.status === "community-confirmed";
+      return (
+        <>
+          <div>
+            {s.payout.type} · {s.settle_days}d
+          </div>
+          {s.payout_unconfirmed && !supersedesFlag && <FlagBadge>confirm on call</FlagBadge>}
+          {consensus && (
+            <div className="mt-1">
+              <CommunityBadge consensus={consensus} />
+            </div>
+          )}
+        </>
+      );
+    },
   },
   nights: {
     align: "right",
-    render: (s) => (
-      <>
-        {s.nights_estimated ? "~" : ""}
-        {s.inpatient_nights}
-      </>
-    ),
+    render: (s) => {
+      const consensus = getFieldConsensus(overlay, s.id, "stays");
+      return (
+        <div className="flex flex-col items-end gap-1">
+          <span>
+            {s.nights_estimated ? "~" : ""}
+            {s.inpatient_nights}
+          </span>
+          {consensus && <CommunityBadge consensus={consensus} />}
+        </div>
+      );
+    },
   },
   trips: {
     align: "right",
@@ -240,15 +359,24 @@ const COLUMN_RENDER: Record<ColumnId, ColumnRenderer> = {
     render: (s) => <FeasibilityBadge feasibility={s.feasibility} />,
   },
   flags: {
-    render: (s) => (
-      <div className="flex max-w-[220px] flex-wrap gap-1">
-        {s.flags
-          .filter((f) => !f.includes("payout timing"))
-          .map((f) => (
-            <FlagBadge key={f}>{f}</FlagBadge>
-          ))}
-      </div>
-    ),
+    render: (s) => {
+      // Same supersede rule as the payout cell above (AC5): a locked-in
+      // community-confirmed nights/BMI value replaces the corresponding
+      // "confirm on call"-style base-dataset flag rather than showing both.
+      const nightsConfirmed = getFieldConsensus(overlay, s.id, "stays")?.status === "community-confirmed";
+      const bmiConfirmed = getFieldConsensus(overlay, s.id, "bmi_range")?.status === "community-confirmed";
+      return (
+        <div className="flex max-w-[220px] flex-wrap gap-1">
+          {s.flags
+            .filter((f) => !f.includes("payout timing"))
+            .filter((f) => !(nightsConfirmed && f.includes("nights unknown")))
+            .filter((f) => !(bmiConfirmed && f.includes("confirm BMI")))
+            .map((f) => (
+              <FlagBadge key={f}>{f}</FlagBadge>
+            ))}
+        </div>
+      );
+    },
   },
   apply: {
     render: (s) =>
@@ -271,7 +399,8 @@ const COLUMN_RENDER: Record<ColumnId, ColumnRenderer> = {
   status: {
     render: (s) => <StatusPill studyId={s.id} />,
   },
-};
+  };
+}
 
 const LABEL_BY_ID: Record<ColumnId, string> = Object.fromEntries(
   ALL_COLUMNS.map((c) => [c.id, c.label]),
@@ -330,12 +459,24 @@ export function RankedTable({
   blocked,
   profile,
   maxAwayNights,
+  communityOverlay = null,
 }: {
   eligible: ScoredStudy[];
   blocked: ScoredStudy[];
   profile: Profile;
   maxAwayNights: number;
+  // Story community-corrections-consensus — data/community-corrections.json,
+  // already sanitized by lib/community-overlay.ts's
+  // sanitizeCommunityCorrectionsFile (app/page.tsx does this once at import
+  // time). Optional/defaults to null so every existing caller/test of this
+  // component keeps working unchanged with zero community badges rendered.
+  communityOverlay?: CommunityCorrectionsFile | null;
 }) {
+  // Column render registry, rebuilt only when the overlay identity changes
+  // (see buildColumnRender's own comment) — everything else about this
+  // table's columns is unaffected by that story.
+  const COLUMN_RENDER = useMemo(() => buildColumnRender(communityOverlay), [communityOverlay]);
+
   // Column order/visibility — the one piece of this story's state that
   // persists across reload, via lib/column-config-store.ts (the same
   // adapter pattern as lib/profile-store.ts). SSR/first paint renders the
