@@ -120,7 +120,6 @@ export function StackSuggesterPanel({ eligible }: { eligible: ScoredStudy[] }) {
               id="stack-target"
               type="number"
               min={1}
-              step={500}
               value={targetInput}
               onChange={(e) => setTargetInput(e.target.value)}
               className="w-32 font-mono tabular-nums"

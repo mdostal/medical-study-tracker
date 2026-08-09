@@ -1,5 +1,5 @@
 {
-  "_comment": "DO NOT GUESS. Backup-care coverage (childcare, pet-sitting, elder care, or any other dependent coverage) is set ONLY by the user, per hub — never inferred by a model. An earlier version INVENTED per-city likelihoods (e.g. 'San Diego: likely', 'Phoenix: likely') and let them rank studies. That was wrong and is removed. This file ships as ANONYMIZED EXAMPLE data only — generic city + coverage note, never a real friend's name or identifying detail. Default every hub to no free coverage; the user decides study-by-study whether has_dependents_needing_care even applies to them (lib/types.ts's Assumptions.has_dependents_needing_care), and free coverage below is only ever used when they've turned that on.",
+  "_comment": "DO NOT GUESS, and DO NOT SHIP EXAMPLE DATA HERE — a prior version of this file shipped two fictional 'SLC'/'SA' free-coverage entries labeled Example: in their notes, but the rendered UI showed them as a flat, unqualified 'free coverage' badge with no indication they were placeholder — a real visitor had no way to tell that from the owner's original personal friend network being genericized, not a fact about the location or clinic. Removed entirely (2026-08-09) per direct user feedback: 'we do not have that based on me, that's bullshit, we are removing that entirely.' backup_care_available below MUST stay empty in this shipped file — it exists only as the shape the per-user localStorage override (lib/profile-store.ts) merges into at runtime. Never add a hub here again, example or otherwise.",
   "rule": "Never assign backup-care coverage from a model. Only the user sets it (backup_care_available, below, is user-stated example data, not a guess). Ranking MUST NOT depend on guessed coverage — rank on pay, nights, drive-vs-fly, payout timing, eligibility. home_base is any city the visitor enters (lib/types.ts's HomeBase) — 'austin'/'omaha' are not special-cased anywhere; drivable-vs-fly is computed from the coordinates below via lib/scoring.ts's haversine distance check, not a hardcoded per-city hub list.",
   "hubs": {
     "AUS": { "city": "Austin, TX", "lat": 30.2672, "lng": -97.7431 },
@@ -16,8 +16,5 @@
     "TOR": { "city": "Toronto, ON", "lat": 43.6532, "lng": -79.3832 },
     "WI": { "city": "Madison, WI", "lat": 43.0731, "lng": -89.4012 }
   },
-  "backup_care_available": {
-    "SLC": { "note": "Example: user has friends there who could provide backup-care coverage (childcare or otherwise)." },
-    "SA": { "note": "Example: hub is a short drive from an example home base and the user has contacts there who offered to help for a weekend stay. Nothing beyond that is confirmed." }
-  }
+  "backup_care_available": {}
 }
