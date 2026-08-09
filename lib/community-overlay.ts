@@ -42,13 +42,26 @@
 //     -- reported as one "min-max" value since the two bounds are only
 //     meaningful as a pair.
 //
-// age_min/age_max, sex, smoker, and special_pop are deliberately NOT
-// correction-eligible in v1: those gate eligibility itself (lib/scoring.ts's
-// isEligible), and a wrong community-sourced value there risks silently
-// admitting or excluding a visitor from a study they can/can't actually do.
-// The three fields above are all descriptive "know your actual number" fields
-// the user explicitly named, never gating.
-export type CorrectionFieldId = "payout.settle_days" | "stays" | "bmi_range";
+// age_min/age_max and sex remain deliberately NOT correction-eligible: those
+// also gate eligibility itself (lib/scoring.ts's isEligible), and a wrong
+// community-sourced value there risks silently admitting or excluding a
+// visitor from a study they can/can't actually do.
+//
+// story: scrape-detail-page-eligibility -- bmi_min, bmi_max, and special_pop
+// are now ALSO correction-eligible, via the exact same mechanism as the three
+// fields above (no new consensus logic, no manual-review step). The root
+// cause that made this story necessary was a scraper gap (pullers never read
+// a study's own detail page), not a flaw in the consensus mechanism itself
+// -- and like every field here, a correction never mutates
+// data/studies.seed.json or feeds lib/scoring.ts's isEligible() directly; it
+// only ever renders as a display-only badge alongside the base value (see
+// mergeCommunityOverlay below and components/ranked-table.tsx's
+// CommunityBadge), so a wrong community report can supplement but never
+// silently override the actual gate. That's what makes it safe to add these
+// despite them being gating fields -- unlike age_min/age_max/sex above, which
+// stay excluded pending a product decision on whether that "display-only,
+// never gating" guarantee is enough for those too.
+export type CorrectionFieldId = "payout.settle_days" | "stays" | "bmi_range" | "bmi_min" | "bmi_max" | "special_pop";
 
 export interface CorrectionFieldDef {
   id: CorrectionFieldId;
@@ -75,6 +88,24 @@ export const CORRECTION_FIELDS: readonly CorrectionFieldDef[] = [
     label: "Confirmed BMI range",
     helpText: "The BMI range the network actually enforced at screening.",
     placeholder: "e.g. 18-30",
+  },
+  {
+    id: "bmi_min",
+    label: "Confirmed BMI floor (min)",
+    helpText: "The actual minimum BMI the network enforced -- e.g. the listed/site data was wrong or missing.",
+    placeholder: "e.g. 25",
+  },
+  {
+    id: "bmi_max",
+    label: "Confirmed BMI ceiling (max)",
+    helpText: "The actual maximum BMI the network enforced -- e.g. the listed/site data was wrong or missing.",
+    placeholder: "e.g. 32",
+  },
+  {
+    id: "special_pop",
+    label: "Special population requirement",
+    helpText: 'What the study actually requires (e.g. "overweight_obese", "asian_descent_required"), or "none" if it does not actually require one.',
+    placeholder: "e.g. overweight_obese or none",
   },
 ];
 
@@ -106,20 +137,45 @@ export function normalizeCorrectionValue(field: CorrectionFieldId, raw: string):
     return String(Math.round(n));
   }
 
-  // bmi_range: "18-30" | "18 - 30" | "18 to 30"
-  const m = trimmed.match(/^(\d{1,3}(?:\.\d+)?)\s*(?:-|to)\s*(\d{1,3}(?:\.\d+)?)$/i);
-  if (!m) return null;
-  const min = Number(m[1]);
-  const max = Number(m[2]);
-  if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
-  if (min <= 0 || max <= 0 || min > max || max > 100) return null;
-  return `${min}-${max}`;
+  if (field === "bmi_range") {
+    // "18-30" | "18 - 30" | "18 to 30"
+    const m = trimmed.match(/^(\d{1,3}(?:\.\d+)?)\s*(?:-|to)\s*(\d{1,3}(?:\.\d+)?)$/i);
+    if (!m) return null;
+    const min = Number(m[1]);
+    const max = Number(m[2]);
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+    if (min <= 0 || max <= 0 || min > max || max > 100) return null;
+    return `${min}-${max}`;
+  }
+
+  if (field === "bmi_min" || field === "bmi_max") {
+    // A single BMI bound -- "25" | "27.5". Same 0 < n <= 100 sanity bound as bmi_range above.
+    if (!/^\d{1,3}(?:\.\d+)?$/.test(trimmed)) return null;
+    const n = Number(trimmed);
+    if (!Number.isFinite(n) || n <= 0 || n > 100) return null;
+    return String(n);
+  }
+
+  // special_pop: a short slug describing what the study actually requires -- e.g.
+  // "overweight_obese", "asian_descent_required", or "none" to report that the base data
+  // wrongly shows a restriction that doesn't actually exist. Free text is deliberately NOT
+  // accepted (unlike the `note` field): this keeps the canonical value stable across independent
+  // reporters (the whole point of the 2+-agreement consensus in scripts/aggregate-corrections.mjs
+  // is exact string equality between reports) and keeps it renderable without ever embedding
+  // arbitrary visitor text as a "confirmed" label.
+  const slug = trimmed.toLowerCase().replace(/\s+/g, "_");
+  if (!/^[a-z][a-z0-9_-]{1,39}$/.test(slug)) return null;
+  return slug;
 }
 
 export function formatCorrectionValue(field: CorrectionFieldId, value: string): string {
   if (field === "payout.settle_days") return `${value}d`;
   if (field === "stays") return `${value} nights`;
-  return `BMI ${value}`;
+  if (field === "bmi_range") return `BMI ${value}`;
+  if (field === "bmi_min") return `BMI min ${value}`;
+  if (field === "bmi_max") return `BMI max ${value}`;
+  // special_pop
+  return value === "none" ? "no special population" : value.replace(/_/g, " ");
 }
 
 // ---- overlay file shape (data/community-corrections.json) --------------------

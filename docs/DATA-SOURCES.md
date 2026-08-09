@@ -66,14 +66,23 @@ selector — see `docs/DATA-INTEGRITY.md` on why guessing at structure is exactl
 to avoid. Extending automation to another network means finding and documenting its concrete
 listing recipe here first, the same way ICON's was documented, then adding a puller function.
 
-**Known gap vs. the manual/phone research pass:** the automated pullers read only what's on the
-*listing* card/row — pay, title, age range, and (where shown) nights/visits. They do **not** dig into
-per-study detail pages the way a manual pass has, so nuance that only shows up there (e.g. an
-"asian descent required" or "documented high cholesterol required" `special_pop` gate) will not
-carry forward automatically for a study that keeps showing up after a refresh. `bmi_min`/`bmi_max`
-land as `null` (safe default — triggers the existing "confirm BMI on call" flag) rather than guessed.
-Treat an automated refresh as keeping the *listing* current, not as a substitute for the phone
-confirmation this doc has always required before anyone acts on a study.
+**Fixed 2026-08-09 (story: scrape-detail-page-eligibility):** the automated pullers used to read
+only what was on the *listing* card/row — pay, title, age range, and (where shown) nights/visits —
+and never visited a study's own detail page, so real eligibility criteria that only showed up there
+(a BMI floor/ceiling, a "GLP-1 medication"/"overweight or have obesity" special-population gate)
+silently shipped as `null`. This was a real correctness bug, not just a coverage gap: a `null`
+`bmi_min`/`bmi_max` means "unconfirmed, don't exclude" to `lib/scoring.ts`'s eligibility gate, so a
+study that actually required a higher BMI showed as available to anyone. Confirmed live against a
+Fortrea Madison "GLP-1 medication" study (id 781236, real BMI floor 25) and, on audit, several ICON
+studies and one JBR study with the same gap. ICON, Fortrea, and JBR/CenExel's pullers now fetch each
+study's own detail page too (`fetchDetailEligibility()` in `scripts/pull-studies.mjs`); Spaulding
+already read its own detail page and only needed a separate fix (its sex line was never parsed —
+the "Montgomery" study is female-only and had shipped as "M/F"). `bmi_min`/`bmi_max`/`special_pop`
+still land as `null` (safe default — triggers the existing "confirm BMI on call" flag) exactly as
+before whenever a detail page genuinely doesn't publish them; the fix is under-extraction, not a
+promise that every study everywhere now has a BMI on file. Treat an automated refresh as keeping
+listing *and* published-eligibility data current, not as a substitute for the phone confirmation
+this doc has always required before anyone acts on a study.
 
 ## Coverage gaps to fill next
 

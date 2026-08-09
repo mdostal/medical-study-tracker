@@ -154,7 +154,11 @@ export function CorrectionForm({
         <p className="text-[0.68rem] text-red-600 dark:text-red-400">
           {field === "bmi_range"
             ? 'That doesn\'t look like a range -- try e.g. "18-30".'
-            : "That doesn't look like a whole number."}
+            : field === "bmi_min" || field === "bmi_max"
+              ? "That doesn't look like a BMI number (0-100)."
+              : field === "special_pop"
+                ? 'That doesn\'t look like a short label -- try e.g. "overweight_obese" or "none".'
+                : "That doesn't look like a whole number."}
         </p>
       )}
 

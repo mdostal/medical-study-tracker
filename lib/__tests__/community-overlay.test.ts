@@ -40,6 +40,36 @@ describe("normalizeCorrectionValue", () => {
     expect(normalizeCorrectionValue("bmi_range", "0-30")).toBeNull();
     expect(normalizeCorrectionValue("bmi_range", "18-500")).toBeNull();
   });
+
+  // story: scrape-detail-page-eligibility -- bmi_min/bmi_max/special_pop became
+  // correction-eligible using the exact same mechanism as the three fields above.
+  it("canonicalizes a single BMI bound (bmi_min/bmi_max), decimals included", () => {
+    expect(normalizeCorrectionValue("bmi_min", "25")).toBe("25");
+    expect(normalizeCorrectionValue("bmi_min", " 27.5 ")).toBe("27.5");
+    expect(normalizeCorrectionValue("bmi_max", "32")).toBe("32");
+  });
+
+  it("rejects an out-of-range, negative, or non-numeric BMI bound", () => {
+    expect(normalizeCorrectionValue("bmi_min", "0")).toBeNull();
+    expect(normalizeCorrectionValue("bmi_min", "-5")).toBeNull();
+    expect(normalizeCorrectionValue("bmi_max", "101")).toBeNull();
+    expect(normalizeCorrectionValue("bmi_max", "not a number")).toBeNull();
+    expect(normalizeCorrectionValue("bmi_min", "")).toBeNull();
+  });
+
+  it("canonicalizes special_pop into a lowercase, underscored slug", () => {
+    expect(normalizeCorrectionValue("special_pop", "overweight_obese")).toBe("overweight_obese");
+    expect(normalizeCorrectionValue("special_pop", "Overweight Obese")).toBe("overweight_obese");
+    expect(normalizeCorrectionValue("special_pop", "none")).toBe("none");
+    expect(normalizeCorrectionValue("special_pop", "  None  ")).toBe("none");
+  });
+
+  it("rejects special_pop values that aren't a short label", () => {
+    expect(normalizeCorrectionValue("special_pop", "")).toBeNull();
+    expect(normalizeCorrectionValue("special_pop", "   ")).toBeNull();
+    expect(normalizeCorrectionValue("special_pop", "!!!")).toBeNull();
+    expect(normalizeCorrectionValue("special_pop", "x".repeat(60))).toBeNull();
+  });
 });
 
 describe("formatCorrectionValue / isCorrectionFieldId / fieldLabel", () => {
@@ -47,14 +77,22 @@ describe("formatCorrectionValue / isCorrectionFieldId / fieldLabel", () => {
     expect(formatCorrectionValue("payout.settle_days", "45")).toBe("45d");
     expect(formatCorrectionValue("stays", "10")).toBe("10 nights");
     expect(formatCorrectionValue("bmi_range", "18-30")).toBe("BMI 18-30");
+    expect(formatCorrectionValue("bmi_min", "25")).toBe("BMI min 25");
+    expect(formatCorrectionValue("bmi_max", "32")).toBe("BMI max 32");
+    expect(formatCorrectionValue("special_pop", "overweight_obese")).toBe("overweight obese");
+    expect(formatCorrectionValue("special_pop", "none")).toBe("no special population");
   });
 
-  it("recognizes exactly the three documented correction fields", () => {
+  it("recognizes exactly the six documented correction fields", () => {
     expect(CORRECTION_FIELDS.map((f) => f.id).sort()).toEqual(
-      ["bmi_range", "payout.settle_days", "stays"].sort(),
+      ["bmi_max", "bmi_min", "bmi_range", "payout.settle_days", "special_pop", "stays"].sort(),
     );
     expect(isCorrectionFieldId("payout.settle_days")).toBe(true);
+    expect(isCorrectionFieldId("bmi_min")).toBe(true);
+    expect(isCorrectionFieldId("bmi_max")).toBe(true);
+    expect(isCorrectionFieldId("special_pop")).toBe(true);
     expect(isCorrectionFieldId("age_max")).toBe(false); // gating field, deliberately not eligible
+    expect(isCorrectionFieldId("sex")).toBe(false); // gating field, deliberately not eligible
     expect(isCorrectionFieldId(123)).toBe(false);
   });
 });

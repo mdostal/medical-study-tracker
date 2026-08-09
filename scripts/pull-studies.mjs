@@ -19,7 +19,16 @@
 // Only four networks currently have a *documented, concrete* DOM extraction recipe (see
 // docs/DATA-SOURCES.md): ICON, Fortrea, Spaulding Clinical, and JBR/CenExel's healthy-volunteer
 // listing. Those four are fully automated below (confirmed live 2026-08-08 while building this
-// script — see the story's final report for the recon transcript). Every other confirmed network
+// script — see the story's final report for the recon transcript).
+//
+// story: scrape-detail-page-eligibility (2026-08-09 fix) -- ICON, Fortrea, and JBR/CenExel used to
+// stop at the listing page/card (pay, dates, title) and never visited a study's own detail page,
+// where the real eligibility criteria (BMI floor/ceiling, special-population gates) actually live
+// -- a real correctness bug (a Fortrea GLP-1-medication study requiring BMI 25+ had shipped with
+// bmi_min/bmi_max/special_pop all null, silently showing as available to anyone). All three now
+// fetch each study's own detail page too, via the shared fetchDetailEligibility()/
+// parseEligibilityText() helpers below. Spaulding already read its own detail page; it only needed
+// a separate fix for a sex-extraction gap (see pullSpaulding's own comment). Every other confirmed network
 // in data/networks.json is phone-only, register-gated, or roster/DB-only per that doc's own
 // per-network notes — there is no concrete listing structure documented to scrape. For those, this
 // script still visits the portal (with a cache-buster, respecting the "golden rule") to confirm
@@ -115,6 +124,182 @@ async function newPage(browser) {
   return browser.newPage({ userAgent: USER_AGENT });
 }
 
+// -------------------- shared detail-page eligibility extraction --------------------
+// story: scrape-detail-page-eligibility -- root-cause fix. Every automated puller below used to
+// read ONLY the listing page/card (pay, dates, title) and never visited a study's own detail page,
+// where the real eligibility criteria (BMI floor/ceiling, special-population gates like "GLP-1
+// medication" or "overweight or have obesity") actually live. Confirmed live 2026-08-09 against
+// Fortrea study 781236 (BMI 25+, GLP-1-medication population -- shipped with bmi_min/bmi_max/
+// special_pop all null) and, on audit, against several ICON studies (e.g. 3054AC/793: "BMI 27.0 -
+// 99.0, Overweight or have obesity", also shipped null) and JBR's one healthy-volunteer study
+// ("BMI between 18-32.0kg/m2", also shipped null) -- see this story's final report for the full
+// live-verified list. Spaulding already read its own detail page (see pullSpaulding below) and
+// only needed the separate sex-extraction fix documented there.
+//
+// The three parsers below are shared across Fortrea/ICON/JBR's detail-page reads so every network
+// reads eligibility text the same way. All are deliberately conservative per
+// docs/DATA-INTEGRITY.md's "never fabricate" rule: anything that doesn't clearly match returns
+// null (bmi_min/bmi_max/special_pop stay null -- exactly the pre-this-story default -- which
+// already surfaces lib/scoring.ts's "confirm BMI on call" flag) rather than guessing.
+// special_pop is only ever set from the page's OWN words (it says "overweight" or "GLP-1
+// medication" right there) -- never inferred merely from an elevated BMI floor, even when the
+// number alone strongly implies it (e.g. ICON study 3705-0020's bare "BMI 27.0 - 99.0" with no
+// population sentence anywhere on the page: bmi_min lands as 27, special_pop stays null).
+export function parseEligibilityText(text) {
+  if (!text) return { bmi_min: null, bmi_max: null, special_pop: null };
+
+  let bmi_min = null;
+  let bmi_max = null;
+
+  // "Participants must have a BMI of:\n18-32" (Fortrea) | "BMI 27.0 - 99.0" / "BMI: 27-45" (ICON)
+  // | "BMI between 18-32.0kg/m2" (JBR) -- all live-verified 2026-08-09.
+  const range = text.match(
+    /BMI\s*(?:of|between)?:?\s*\n?\s*(\d{1,3}(?:\.\d+)?)\s*(?:-|to)\s*(\d{1,3}(?:\.\d+)?)/i
+  );
+  if (range) {
+    bmi_min = parseFloat(range[1]);
+    bmi_max = parseFloat(range[2]);
+  } else {
+    // "Participants must have a BMI of:\n25+" (Fortrea 781236) -- a published floor with no
+    // stated ceiling; never invent one.
+    const plus = text.match(/BMI\s*(?:of|between)?:?\s*\n?\s*(\d{1,3}(?:\.\d+)?)\s*\+/i);
+    if (plus) bmi_min = parseFloat(plus[1]);
+  }
+
+  // Deliberately narrow phrasing, not a bare "overweight"/"obesity"/"GLP-1" keyword search.
+  // Live-verified 2026-08-09: Fortrea study 782366's OWN "Study Details" text reads "...an
+  // investigational drug being developed for the treatment of obesity" -- the DRUG's target
+  // condition, not a participant requirement (that study recruits plain "Healthy Adults" with no
+  // population gate). A bare "obesity" keyword match would have mislabeled it. The two patterns
+  // below match ONLY the actual bullet/sentence phrasing every genuine confirmed case actually
+  // uses ("Overweight or have obesity" / "Overweight or obese" on ICON; "currently on GLP-1
+  // medication" describing who Fortrea is recruiting), not merely mentioning the words somewhere
+  // on the page.
+  let special_pop = null;
+  if (/overweight\s+or\s+(?:have\s+)?obes/i.test(text) || /(?:currently\s+on|taking)\s+GLP-1\s+medication/i.test(text)) {
+    special_pop = "overweight_obese";
+  }
+
+  return { bmi_min, bmi_max, special_pop };
+}
+
+/** "Non Smoker" -> "non" | "Smoking is allowed...", "Smokers & non-smokers allowed", "Smokers
+ * allowed, but no more than 10/day" -> "any". Returns null (caller keeps its own listing-derived
+ * value) when the detail page doesn't say either way. */
+export function parseSmokerFromText(text) {
+  if (!text) return null;
+  // Checked FIRST: "Smokers & non-smokers allowed" contains the literal substring "non-smoker"
+  // too, so checking the plain non-smoker pattern first would misread an explicitly
+  // smokers-allowed study as non-smoker-only. Any "allowed" wording wins regardless of order.
+  if (/smoking is allowed|smokers?\s*(?:&|and)?\s*non-smokers?\s*allowed|smokers?\s*allowed/i.test(text)) {
+    return "any";
+  }
+  if (/non[\s-]?smoker/i.test(text)) return "non";
+  return null;
+}
+
+/** "Female Only" / "Women Only" -> "female" | "Male Only" (and not also female) -> "male" |
+ * "Male/Female" / "Male and Female" -> "M/F". Returns null when the page doesn't say. Checks
+ * female first since "female" contains "male" as a literal substring -- never let that misfire a
+ * male-only read off a female-only page. */
+export function parseSexFromText(text) {
+  if (!text) return null;
+  if (/\b(?:female|women)\s*only\b/i.test(text)) return "female";
+  if (/\bmale\s*only\b/i.test(text) && !/female/i.test(text)) return "male";
+  if (/male\s*\/\s*female|male\s+and\s+female|males?\s+and\s+females?/i.test(text)) return "M/F";
+  return null;
+}
+
+/** "Age 18 - 68" (ICON) | "ages 18-70" (Fortrea's own top sentence) | "18-65 years old" (JBR) ->
+ * {age_min, age_max}. Returns null when the detail page doesn't clearly state a range, so the
+ * caller falls back to its own listing-derived age (already reliable for every network below). */
+export function parseAgeFromDetailText(text) {
+  if (!text) return null;
+  const m =
+    text.match(/ages?\b[^\d\n]{0,10}(\d{1,3})\s*-\s*(\d{1,3})/i) ??
+    text.match(/(\d{1,3})\s*-\s*(\d{1,3})\s*years?\s*old/i);
+  if (!m) return null;
+  return { age_min: parseInt(m[1], 10), age_max: parseInt(m[2], 10) };
+}
+
+/** "Must weigh at least 110 lbs" / "weigh at least 50 Kg (~110 lbs)" -> 110. Same pattern
+ * pullSpaulding below already used for its own detail pages -- shared here so JBR's detail page
+ * gets the same treatment now that it reads one too. */
+export function parseMinWeightLbFromText(text) {
+  if (!text) return null;
+  const m = text.match(/at least\s*(\d+)\s*lbs?/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/** Default extraction scope: the whole rendered page. Fine for a network whose detail pages don't
+ * repeat OTHER studies' eligibility text anywhere on a single study's own page -- confirmed live
+ * 2026-08-09 across multiple Fortrea and the one JBR sample (each page's "BMI" text appeared
+ * exactly once, matching that study's own criteria, nowhere near ICON's carousel-contamination
+ * problem below). */
+async function extractFullBodyText(page) {
+  return page.$eval("body", (b) => b.innerText);
+}
+
+/** ICON's "Who can participate?" list, scoped to ONLY that list -- NOT the whole page. ICON's
+ * detail pages render a same-markup "similar studies" carousel elsewhere on the SAME page that
+ * includes OTHER studies' full titles/descriptions. Confirmed live 2026-08-09: study 733's own
+ * page literally contains the text "...Investigational Medication in Overweight or Obese
+ * Volunteers" because studies 2988/3054AC appear in its "similar studies" carousel -- reading
+ * `document.body.innerText` misattributed THEIR special population (and would risk their BMI too)
+ * to study 733, which has neither. Falls back to the whole page (matching the pre-scoped
+ * behavior) if the expected structure isn't found, rather than throwing. */
+async function extractIconEligibilityText(page) {
+  const scoped = await page.evaluate(() => {
+    const titles = [...document.querySelectorAll(".about-study__questions-item-title")];
+    const whoCan = titles.find((el) => /who can participate/i.test(el.textContent ?? ""));
+    const list = whoCan?.parentElement?.querySelector(".about-study__questions-item-list");
+    return list ? list.innerText : null;
+  });
+  return scoped ?? (await extractFullBodyText(page));
+}
+
+/** Fortrea's own "Study Details" content column, scoped to ONLY that div. No cross-study leakage
+ * was observed live across 4 sample Fortrea pages (unlike ICON's carousel above), but scoped
+ * anyway as defense in depth against a future template change adding a "similar studies" widget
+ * to the same page -- and it has the added benefit of excluding the page's own "BMI Calculator"
+ * widget from the search space entirely. Falls back to the whole page if not found. */
+async function extractFortreaEligibilityText(page) {
+  const scoped = await page.evaluate(() => {
+    const h2s = [...document.querySelectorAll("h2")];
+    const studyDetails = h2s.find((el) => /study details/i.test(el.textContent ?? ""));
+    const container = studyDetails?.closest(".cell.medium-7");
+    return container ? container.innerText : null;
+  });
+  return scoped ?? (await extractFullBodyText(page));
+}
+
+/** Visits a study's own detail page (source_url) and extracts real eligibility-criteria fields
+ * from its rendered text (scoped per network by `extractText`, defaulting to the whole page) --
+ * shared by every puller that doesn't already read its own detail page (Fortrea, ICON, JBR;
+ * Spaulding already did before this story). Never throws: a detail page that fails to load (404,
+ * timeout, site hiccup) logs a warning and returns an all-null result, which simply leaves the
+ * caller's own listing-derived defaults in place -- per docs/DATA-INTEGRITY.md, "can't confirm it"
+ * always means null + the existing "confirm BMI on call" flag, never a guess. */
+async function fetchDetailEligibility(browser, url, label, extractText = extractFullBodyText) {
+  const page = await newPage(browser);
+  try {
+    await page.goto(cacheBustedUrl(url), { waitUntil: "networkidle", timeout: 45_000 });
+    const text = await extractText(page);
+    return {
+      ...parseEligibilityText(text),
+      sex: parseSexFromText(text),
+      smoker: parseSmokerFromText(text),
+      age: parseAgeFromDetailText(text),
+      min_weight_lb: parseMinWeightLbFromText(text),
+    };
+  } catch (err) {
+    warnAnnotation(`${label}: couldn't read detail page for eligibility (${url}) -- ${err.message}`);
+    return { bmi_min: null, bmi_max: null, special_pop: null, sex: null, smoker: null, age: null, min_weight_lb: null };
+  } finally {
+    await page.close();
+  }
+}
+
 /** De-dupes a network's freshly-pulled studies by `id`, keeping the FIRST occurrence encountered
  * (first-write-wins) and dropping later ones. This is a safety net applied to every puller's
  * output regardless of root-cause fixes upstream, so a future DOM change on any network's site
@@ -180,46 +365,52 @@ async function pullICON(browser) {
         })
     );
 
-    const studies = cards
-      .filter((c) => c.id && c.href)
-      .map((c) => {
-        const source_url = new URL(c.href, "https://iconstudies.com").toString();
-        const apply_url = c.applyHref
-          ? new URL(c.applyHref, "https://iconstudies.com").toString()
-          : undefined;
-        const [city, state] = c.location.split(",").map((s) => s.trim());
-        const hubKey = new URL(source_url).pathname.split("/")[1]?.toLowerCase() ?? "";
-        const hub = ICON_HUBS[hubKey] ?? hubKey.toUpperCase();
-        const { stays, visits } = parseNightsVisits(c.details);
-        const { age_min, age_max } = parseAgeRange(c.age);
-        const isOverweightStudy = /overweight|obese/i.test(c.title);
+    // story: scrape-detail-page-eligibility -- the listing card never carries BMI/special-
+    // population info (confirmed live 2026-08-09: several ICON studies, e.g. 793/"3054AC" and
+    // 808/"2988", explicitly say "Overweight or have obesity" with a real BMI floor on their OWN
+    // detail page while the listing card's title is just "Healthy Volunteers"). Each card's
+    // `title` is kept as a low-cost fallback signal, but the detail page is now the authority.
+    const studies = [];
+    for (const c of cards.filter((c) => c.id && c.href)) {
+      const source_url = new URL(c.href, "https://iconstudies.com").toString();
+      const apply_url = c.applyHref
+        ? new URL(c.applyHref, "https://iconstudies.com").toString()
+        : undefined;
+      const [city, state] = c.location.split(",").map((s) => s.trim());
+      const hubKey = new URL(source_url).pathname.split("/")[1]?.toLowerCase() ?? "";
+      const hub = ICON_HUBS[hubKey] ?? hubKey.toUpperCase();
+      const { stays, visits } = parseNightsVisits(c.details);
+      const listingAge = parseAgeRange(c.age);
+      const titleSaysOverweight = /overweight|obese/i.test(c.title);
 
-        return {
-          id: c.id,
-          network: "ICON",
-          city: city ?? "",
-          state: state ?? "",
-          hub,
-          pay_gross: parsePay(c.price),
-          currency: "USD",
-          payout: { type: "unknown", settle_days: null },
-          stays,
-          visits,
-          bmi_min: null,
-          bmi_max: null,
-          age_min,
-          age_max,
-          sex: /female/i.test(c.sex) && !/male\/female/i.test(c.sex) ? "female" : "M/F",
-          smoker: /non_smoker/i.test(c.smokerIconHref) ? "non" : "any",
-          special_pop: isOverweightStudy ? "overweight_obese" : null,
-          status: c.status ? c.status.toLowerCase() : "enrolling",
-          source_url,
-          apply_url,
-          verified: new Date().toISOString().slice(0, 10),
-          verified_by: "playwright-DOM",
-          notes: c.title || undefined,
-        };
+      const elig = await fetchDetailEligibility(browser, source_url, "ICON", extractIconEligibilityText);
+
+      studies.push({
+        id: c.id,
+        network: "ICON",
+        city: city ?? "",
+        state: state ?? "",
+        hub,
+        pay_gross: parsePay(c.price),
+        currency: "USD",
+        payout: { type: "unknown", settle_days: null },
+        stays,
+        visits,
+        bmi_min: elig.bmi_min,
+        bmi_max: elig.bmi_max,
+        age_min: elig.age?.age_min ?? listingAge.age_min,
+        age_max: elig.age?.age_max ?? listingAge.age_max,
+        sex: elig.sex ?? (/female/i.test(c.sex) && !/male\/female/i.test(c.sex) ? "female" : "M/F"),
+        smoker: elig.smoker ?? (/non_smoker/i.test(c.smokerIconHref) ? "non" : "any"),
+        special_pop: elig.special_pop ?? (titleSaysOverweight ? "overweight_obese" : null),
+        status: c.status ? c.status.toLowerCase() : "enrolling",
+        source_url,
+        apply_url,
+        verified: new Date().toISOString().slice(0, 10),
+        verified_by: "playwright-DOM",
+        notes: c.title || undefined,
       });
+    }
 
     // Cause #2 above (same study legitimately rendered in >1 carousel section): dedupe by id,
     // first-write-wins. DOM order isn't meaningful here since every duplicate observed live is
@@ -272,50 +463,58 @@ async function pullFortrea(browser) {
     );
 
     const seenIds = new Map();
-    const studies = rows
-      .map((r) => {
-        const source_url = new URL(r.href, "https://www.fortreaclinicaltrials.com").toString();
-        const idMatch = r.titleCellText.match(/(\d{5,7})/);
-        let id = idMatch ? idMatch[1] : source_url.split("/").pop() ?? r.title;
-        const dupeCount = seenIds.get(id) ?? 0;
-        seenIds.set(id, dupeCount + 1);
-        if (dupeCount > 0) id = `${id}-${dupeCount + 1}`; // disambiguate cohort variants sharing an ID
-        const hubInfo = FORTREA_HUBS.find((h) => h.match.test(r.location)) ?? null;
-        const [city] = r.location.split(",").map((s) => s.trim());
-        const { stays, visits } = parseNightsVisits(
-          r.design.replace(/(\d+)\s+to\s+(\d+)\s+nights/i, (_m, a) => `1 stay of ${a} nights`)
-        );
-        const { age_min, age_max } = parseAgeRange(r.age);
+    const studies = [];
+    for (const r of rows) {
+      const source_url = new URL(r.href, "https://www.fortreaclinicaltrials.com").toString();
+      const idMatch = r.titleCellText.match(/(\d{5,7})/);
+      let id = idMatch ? idMatch[1] : source_url.split("/").pop() ?? r.title;
+      const dupeCount = seenIds.get(id) ?? 0;
+      seenIds.set(id, dupeCount + 1);
+      if (dupeCount > 0) id = `${id}-${dupeCount + 1}`; // disambiguate cohort variants sharing an ID
 
-        return {
-          id,
-          network: "Fortrea",
-          city: city ?? "",
-          state: hubInfo?.state ?? "",
-          hub: hubInfo?.hub ?? "",
-          pay_gross: parsePay(r.compensation),
-          currency: "USD",
-          payout: { type: "unknown", settle_days: null },
-          stays,
-          visits,
-          bmi_min: null,
-          bmi_max: null,
-          age_min,
-          age_max,
-          sex: "M/F", // not exposed on the listing table; per-study detail page has the exact filter
-          smoker: /^y/i.test(r.smoker) ? "any" : "non",
-          special_pop: null,
-          status: "enrolling",
-          source_url,
-          phone: "1-866-429-3700",
-          verified: new Date().toISOString().slice(0, 10),
-          verified_by: "playwright-DOM",
-          notes: r.title || undefined,
-        };
-      })
-      // Fortrea's DFW/FL/WI units are the ones in data/networks.json — skip any other state
-      // that appears on the national table (out of scope for this tool's network list).
-      .filter((s) => s.hub);
+      const hubInfo = FORTREA_HUBS.find((h) => h.match.test(r.location)) ?? null;
+      // Fortrea's DFW/FL/WI units are the ones in data/networks.json — skip any other state that
+      // appears on the national table (out of scope for this tool's network list) BEFORE spending
+      // a detail-page fetch on it.
+      if (!hubInfo) continue;
+
+      const [city] = r.location.split(",").map((s) => s.trim());
+      const { stays, visits } = parseNightsVisits(
+        r.design.replace(/(\d+)\s+to\s+(\d+)\s+nights/i, (_m, a) => `1 stay of ${a} nights`)
+      );
+      const listingAge = parseAgeRange(r.age);
+
+      // story: scrape-detail-page-eligibility -- root-cause fix. This used to be the entire
+      // extraction: bmi_min/bmi_max/special_pop hardcoded null and sex hardcoded "M/F" with a
+      // comment saying the real filter lived on the detail page and was never read. It's now read.
+      const elig = await fetchDetailEligibility(browser, source_url, "Fortrea", extractFortreaEligibilityText);
+
+      studies.push({
+        id,
+        network: "Fortrea",
+        city: city ?? "",
+        state: hubInfo.state,
+        hub: hubInfo.hub,
+        pay_gross: parsePay(r.compensation),
+        currency: "USD",
+        payout: { type: "unknown", settle_days: null },
+        stays,
+        visits,
+        bmi_min: elig.bmi_min,
+        bmi_max: elig.bmi_max,
+        age_min: elig.age?.age_min ?? listingAge.age_min,
+        age_max: elig.age?.age_max ?? listingAge.age_max,
+        sex: elig.sex ?? "M/F",
+        smoker: elig.smoker ?? (/^y/i.test(r.smoker) ? "any" : "non"),
+        special_pop: elig.special_pop,
+        status: "enrolling",
+        source_url,
+        phone: "1-866-429-3700",
+        verified: new Date().toISOString().slice(0, 10),
+        verified_by: "playwright-DOM",
+        notes: r.title || undefined,
+      });
+    }
 
     return studies;
   } finally {
@@ -324,6 +523,22 @@ async function pullFortrea(browser) {
 }
 
 // -------------------- Spaulding Clinical (confirmed: /study/<slug>/ detail pages) -------------
+// Spaulding already read its own detail page before this story (it never had a listing-only
+// shortcut) -- but its REQUIREMENTS block's own sex line ("Healthy Male & Female" | "Healthy
+// Female" | "Healthy Male") was never actually parsed; `sex` shipped hardcoded "M/F" for every
+// study regardless. Confirmed live 2026-08-09: the "Montgomery" study's own page says "Healthy
+// Female" (a real female-only study), yet data/studies.seed.json had it as "M/F" -- the exact same
+// silent-eligibility-gap failure mode this story exists to fix, just on a different field. Checks
+// "female" before "male" since "female" contains "male" as a literal substring.
+function parseSpauldingSex(bodyText) {
+  const line = bodyText.match(/Healthy\s+((?:Male|Female)[^\n]*)/i)?.[1] ?? "";
+  const hasFemale = /female/i.test(line);
+  const hasMale = /\bmale\b/i.test(line.replace(/female/gi, ""));
+  if (hasMale && hasFemale) return "M/F";
+  if (hasFemale) return "female";
+  if (hasMale) return "male";
+  return "M/F"; // page didn't say -- keep the pre-existing safe default, never narrow without evidence
+}
 
 async function pullSpaulding(browser) {
   const listPage = await newPage(browser);
@@ -368,7 +583,7 @@ async function pullSpaulding(browser) {
         bmi_max: bmiMatch ? parseFloat(bmiMatch[2]) : null,
         age_min: ageMatch ? parseInt(ageMatch[1], 10) : 18,
         age_max: ageMatch ? parseInt(ageMatch[2], 10) : 99,
-        sex: "M/F",
+        sex: parseSpauldingSex(bodyText),
         smoker: "non",
         special_pop: null,
         min_weight_lb: weightMatch ? parseInt(weightMatch[1], 10) : undefined,
@@ -417,9 +632,15 @@ async function pullJBR(browser) {
     );
 
     const healthy = rows.filter((r) => /healthy/i.test(r.title) && r.href);
-    const studies = healthy.map((r) => {
-      const { age_min, age_max } = parseAgeRange(r.age);
-      return {
+    // story: scrape-detail-page-eligibility -- confirmed live 2026-08-09: JBR's own healthy-
+    // volunteer detail page says "Must have a BMI between 18-32.0kg/m2 / Must weigh at least 110
+    // lbs" in its "STUDY DETAILS" blurb, none of which the listing-only extraction below ever read
+    // (bmi_min/bmi_max shipped null).
+    const studies = [];
+    for (const r of healthy) {
+      const listingAge = parseAgeRange(r.age);
+      const elig = await fetchDetailEligibility(browser, r.href, "JBR/CenExel");
+      studies.push({
         id: `JBR-${r.title.replace(/\s+/g, "")}`,
         network: "JBR/CenExel",
         city: "Salt Lake City",
@@ -430,21 +651,22 @@ async function pullJBR(browser) {
         payout: { type: "unknown", settle_days: null, note: "'for time and travel'; long visit tail" },
         stays: null,
         visits: null,
-        bmi_min: null,
-        bmi_max: null,
-        age_min,
-        age_max,
-        sex: "M/F",
-        smoker: "any",
-        special_pop: null,
+        bmi_min: elig.bmi_min,
+        bmi_max: elig.bmi_max,
+        age_min: elig.age?.age_min ?? listingAge.age_min,
+        age_max: elig.age?.age_max ?? listingAge.age_max,
+        sex: elig.sex ?? "M/F",
+        smoker: elig.smoker ?? "any",
+        special_pop: elig.special_pop,
+        min_weight_lb: elig.min_weight_lb ?? undefined,
         status: r.status ? r.status.toLowerCase() : "enrolling",
         source_url: r.href,
         phone: "801-261-2000",
         verified: new Date().toISOString().slice(0, 10),
         verified_by: "playwright-DOM",
         notes: r.title,
-      };
-    });
+      });
+    }
     if (studies.length === 0) {
       throw new Error("no 'Healthy' study rows found on cenexelresearch.com/jbr/all-studies");
     }
@@ -600,7 +822,12 @@ async function main() {
   log(`Wrote ${finalStudies.length} studies to ${SEED_PATH}`);
 }
 
-main().catch((err) => {
-  console.error("[pull-studies] fatal error:", err);
-  process.exit(1);
-});
+// Only run main() when this file is executed directly (`node scripts/pull-studies.mjs`) -- not
+// when a test file imports this module's exported pure parsers above, same "importable without
+// side effects" shape scripts/aggregate-corrections.mjs already uses.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error("[pull-studies] fatal error:", err);
+    process.exit(1);
+  });
+}
