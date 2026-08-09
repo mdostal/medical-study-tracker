@@ -13,6 +13,7 @@ const CUSTOM_STATE: PersistedState = {
     has_dependents_needing_care: true,
   },
   sortKey: "cash_velocity",
+  backup_care_hubs: ["AUS", "MSP"],
 };
 
 describe("share-link encode/decode round-trip", () => {
@@ -47,24 +48,24 @@ describe("share-link encode/decode round-trip", () => {
 describe("share-link malformed input fallback", () => {
   it("falls back to defaults when the share param is entirely missing", () => {
     const decoded = decodeShareState(new URLSearchParams());
-    expect(decoded).toEqual({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY });
+    expect(decoded).toEqual({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY, backup_care_hubs: [] });
   });
 
   it("falls back to defaults for garbage (non-base64) param value", () => {
     const decoded = decodeShareState(new URLSearchParams({ [SHARE_PARAM]: "!!!not-base64!!!" }));
-    expect(decoded).toEqual({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY });
+    expect(decoded).toEqual({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY, backup_care_hubs: [] });
   });
 
   it("falls back to defaults for validly-encoded but non-JSON content", () => {
     const notJson = Buffer.from("this is not json").toString("base64url");
     const decoded = decodeShareState(new URLSearchParams({ [SHARE_PARAM]: notJson }));
-    expect(decoded).toEqual({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY });
+    expect(decoded).toEqual({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY, backup_care_hubs: [] });
   });
 
   it("falls back to defaults for valid JSON of the wrong shape (e.g. an array)", () => {
     const wrongShape = Buffer.from(JSON.stringify([1, 2, 3])).toString("base64url");
     const decoded = decodeShareState(new URLSearchParams({ [SHARE_PARAM]: wrongShape }));
-    expect(decoded).toEqual({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY });
+    expect(decoded).toEqual({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY, backup_care_hubs: [] });
   });
 
   it("never throws on decode regardless of input", () => {

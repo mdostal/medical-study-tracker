@@ -127,7 +127,15 @@ export interface ScoredStudy extends Study {
   drivable: boolean;
   travel_cost: number;
   backup_care_cost: number;
-  backup_care_by: "paid-backup-care" | "free-coverage" | "no-dependents";
+  // story: configurable-backup-care-coverage — "free-coverage" means ONLY
+  // "this hub is in the visitor's own persisted backup_care_hubs" (never a
+  // default, never inferred). "short-stay-no-cost" is the DIFFERENT reason
+  // a stay can also cost $0: it's short enough for friend_threshold_nights
+  // to cover regardless of location/hub. These were previously conflated
+  // under "free-coverage", which meant a fresh visitor with zero configured
+  // hubs could still see a "free coverage" badge on a short-stay study —
+  // exactly the kind of misleading-badge bug this story exists to prevent.
+  backup_care_by: "paid-backup-care" | "free-coverage" | "short-stay-no-cost" | "no-dependents";
   net_cash: number;
   settle_days: number;
   payout_unconfirmed: boolean;
@@ -192,11 +200,23 @@ export const DEFAULT_SORT_KEY: SortKey = "score";
 export interface PersistedState {
   assumptions: Assumptions;
   sortKey: SortKey;
+  // story: configurable-backup-care-coverage — hub codes (data/friend-childcare-map.json's
+  // `hubs` keys, e.g. "AUS") where THIS visitor has stated they personally
+  // have free backup-care coverage (their own friend/family/partner, not a
+  // fact about the clinic or city). Defaults to empty: a fresh visitor sees
+  // NO free coverage anywhere until they explicitly add a hub themselves via
+  // the Profile panel control. Never populated by anything other than the
+  // visitor's own action — see data/friend-childcare-map.json's header
+  // comment for the incident this replaces. Merged into FriendMap.
+  // backup_care_available at render time (app/page.tsx) — the static JSON
+  // file's own backup_care_available stays permanently empty.
+  backup_care_hubs: string[];
 }
 
 export const DEFAULT_PERSISTED_STATE: PersistedState = {
   assumptions: DEFAULT_ASSUMPTIONS,
   sortKey: DEFAULT_SORT_KEY,
+  backup_care_hubs: [],
 };
 
 function isSortKey(value: unknown): value is SortKey {
@@ -252,6 +272,19 @@ function sanitizeAssumptions(input: unknown): Assumptions {
   };
 }
 
+// story: configurable-backup-care-coverage — accepts only a flat array of
+// non-empty strings; dedupes; anything else (wrong type, non-string
+// entries, malformed input) falls back to the default empty list rather
+// than throwing or partially-trusting the input. Hub codes that don't
+// exist in data/friend-childcare-map.json's hubs are harmless no-ops at
+// merge time (app/page.tsx only merges codes present in the static hubs
+// list) — this validator doesn't need to know that list.
+function sanitizeBackupCareHubs(v: unknown): string[] {
+  if (!Array.isArray(v)) return [...DEFAULT_PERSISTED_STATE.backup_care_hubs];
+  const cleaned = v.filter((x): x is string => typeof x === "string" && x.length > 0);
+  return Array.from(new Set(cleaned));
+}
+
 /**
  * Normalize arbitrary/untrusted input (parsed JSON from localStorage or a
  * share-link URL) into a valid PersistedState. Never throws — anything
@@ -263,5 +296,6 @@ export function sanitizePersistedState(input: unknown): PersistedState {
   return {
     assumptions: sanitizeAssumptions(src.assumptions),
     sortKey: isSortKey(src.sortKey) ? src.sortKey : DEFAULT_SORT_KEY,
+    backup_care_hubs: sanitizeBackupCareHubs(src.backup_care_hubs),
   };
 }

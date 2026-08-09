@@ -68,6 +68,16 @@ function drivable(hub: string, base: HomeBase, fm: FriendMap): boolean {
 // the study's hub has user-stated free coverage (fm.backup_care_available)
 // — never guessed. Anything else costs the user's own entered rate
 // (backup_care_rate_per_night), not a hardcoded constant.
+//
+// story: configurable-backup-care-coverage — hasFreeCoverage and "every
+// stay is within friend_threshold_nights" are two DIFFERENT reasons cost
+// can land at $0, and must be labeled differently: only the former is
+// "free-coverage" (this hub is in the visitor's own stated
+// backup_care_hubs). Collapsing both under "free-coverage" (the old
+// behavior) meant a fresh visitor with zero configured hubs could still see
+// a "free coverage" badge on any study whose stays were all short — this
+// story's own acceptance criteria ("free coverage never appears until the
+// visitor has explicitly added a hub") requires telling them apart.
 function backupCareCost(
   stays: number[], hub: string, a: Assumptions, fm: FriendMap,
 ): { cost: number; by: ScoredStudy["backup_care_by"] } {
@@ -79,7 +89,8 @@ function backupCareCost(
     if (n <= a.friend_threshold_nights || hasFreeCoverage) continue;
     cost += n * a.backup_care_rate_per_night;
   }
-  return { cost, by: cost > 0 ? "paid-backup-care" : "free-coverage" };
+  if (cost > 0) return { cost, by: "paid-backup-care" };
+  return { cost, by: hasFreeCoverage ? "free-coverage" : "short-stay-no-cost" };
 }
 
 // ---- core derivation --------------------------------------------------------

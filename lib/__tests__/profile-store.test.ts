@@ -52,13 +52,18 @@ describe("profile-store (localStorage adapter)", () => {
         backup_care_rate_per_night: 300,
       },
       sortKey: "downtime_rate",
+      backup_care_hubs: ["AUS", "SLC"],
     };
     savePersistedState(state);
     expect(loadPersistedState()).toEqual(state);
   });
 
   it("clearPersistedState removes the saved state", () => {
-    savePersistedState({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY });
+    savePersistedState({
+      assumptions: DEFAULT_ASSUMPTIONS,
+      sortKey: DEFAULT_SORT_KEY,
+      backup_care_hubs: [],
+    });
     clearPersistedState();
     expect(loadPersistedState()).toBeNull();
   });
@@ -81,6 +86,7 @@ describe("profile-store (localStorage adapter)", () => {
     expect(loadPersistedState()).toEqual({
       assumptions: DEFAULT_ASSUMPTIONS,
       sortKey: "score",
+      backup_care_hubs: [],
     });
   });
 });
@@ -192,7 +198,11 @@ describe("profile-store without localStorage available", () => {
     expect(() => loadPersistedState()).not.toThrow();
     expect(loadPersistedState()).toBeNull();
     expect(() =>
-      savePersistedState({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY }),
+      savePersistedState({
+        assumptions: DEFAULT_ASSUMPTIONS,
+        sortKey: DEFAULT_SORT_KEY,
+        backup_care_hubs: [],
+      }),
     ).not.toThrow();
     expect(() => clearPersistedState()).not.toThrow();
   });

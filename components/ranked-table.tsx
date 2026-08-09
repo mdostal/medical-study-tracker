@@ -336,7 +336,12 @@ function buildColumnRender(overlay: CommunityCorrectionsFile | null): Record<Col
           {fmtUSD(s.backup_care_cost)} <span className="text-muted-foreground">· backup care</span>
         </>
       ) : s.backup_care_by === "free-coverage" ? (
+        // story: configurable-backup-care-coverage — ONLY rendered when this
+        // hub is in the visitor's own persisted backup_care_hubs (never a
+        // default). Never confused with short-stay-no-cost below.
         <span className="text-muted-foreground">free coverage</span>
+      ) : s.backup_care_by === "short-stay-no-cost" ? (
+        <span className="text-muted-foreground">no cost · short stay</span>
       ) : (
         <span className="text-muted-foreground">no dependents</span>
       ),

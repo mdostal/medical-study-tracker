@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Assumptions, FriendMap, Profile, SortKey, Study } from "@/lib/types";
+import type { Assumptions, BackupCareHub, FriendMap, Profile, SortKey, Study } from "@/lib/types";
 import { DEFAULT_ASSUMPTIONS, DEFAULT_SORT_KEY, sanitizePersistedState } from "@/lib/types";
 import { scoreAll } from "@/lib/scoring";
 import { addUserStudy, loadPersistedState, loadUserStudies, savePersistedState } from "@/lib/profile-store";
@@ -45,31 +45,38 @@ const DEMO_PROFILE: Profile = {
 };
 
 // Hub coordinates (for lib/scoring.ts's real drivable-vs-fly distance
-// check) and user-stated free backup-care coverage — both pulled straight
-// from data/friend-childcare-map.json, itself real non-guessed data (see
-// that file's own _comment). Backup-care coverage is deliberately NEVER
-// modeled/guessed from a map; lib/scoring.ts only ever derives
-// backup_care_cost from the user-controlled has_dependents_needing_care +
-// backup_care_rate_per_night + friend_threshold_nights assumptions, plus
-// this explicitly user-stated hub list — never a per-city guess.
+// check) — pulled straight from data/friend-childcare-map.json, itself real
+// non-guessed data (see that file's own _comment). Its backup_care_available
+// ships permanently empty (2026-08-09 incident — see the file's header
+// comment): this app never ships or guesses per-hub free-coverage data.
+// story: configurable-backup-care-coverage — the ONLY thing that ever
+// populates backup_care_available is a visitor's own persisted
+// backup_care_hubs, merged in at render time below (effectiveFriendMap).
+// This module-level FRIEND_MAP is the static, always-empty-for-coverage
+// source of truth; it is never passed to scoreAll() directly.
 const FRIEND_MAP: FriendMap = {
   hubs: friendChildcareMap.hubs as FriendMap["hubs"],
   backup_care_available: friendChildcareMap.backup_care_available as FriendMap["backup_care_available"],
 };
 
-// Read-only "which hubs have free backup-care coverage" list for the
-// Profile panel (only ever shown once the visitor turns on
-// has_dependents_needing_care) — joins the two static maps above once,
-// rather than re-deriving it inside the component on every render.
-const BACKUP_CARE_HUBS = Object.entries(FRIEND_MAP.backup_care_available).map(([hub, info]) => ({
+// Full list of hubs a visitor can pick from in the Profile panel's "your own
+// free coverage" control (only ever shown once has_dependents_needing_care
+// is on) — every hub in the static map, NOT filtered by
+// backup_care_available (which is always empty). Selecting one just means
+// "I personally have coverage here", nothing about the location itself.
+const AVAILABLE_BACKUP_CARE_HUBS = Object.entries(FRIEND_MAP.hubs).map(([hub, point]) => ({
   hub,
-  city: FRIEND_MAP.hubs[hub]?.city ?? hub,
-  note: info.note,
+  city: point.city,
 }));
 
 export default function Home() {
   const [assumptions, setAssumptions] = useState<Assumptions>(DEFAULT_ASSUMPTIONS);
   const [sortKey, setSortKey] = useState<SortKey>(DEFAULT_SORT_KEY);
+  // story: configurable-backup-care-coverage — THIS visitor's own stated
+  // free-coverage hubs, defaulting to empty (restored below in the same
+  // hydrate effect as assumptions/sortKey, and share-link-encodable exactly
+  // like them since it lives in PersistedState).
+  const [backupCareHubs, setBackupCareHubs] = useState<string[]>([]);
   // Visitor's own "add study by URL" entries (story: add-study-by-url) —
   // starts empty on every render (including SSR) and is restored from
   // lib/profile-store.ts in the same hydrate effect below, same
@@ -94,6 +101,7 @@ export default function Home() {
       : (loadPersistedState() ?? sanitizePersistedState(undefined));
     setAssumptions(restored.assumptions);
     setSortKey(restored.sortKey);
+    setBackupCareHubs(restored.backup_care_hubs);
     setUserStudies(loadUserStudies());
     setHydrated(true);
   }, []);
@@ -104,8 +112,8 @@ export default function Home() {
   // render.
   useEffect(() => {
     if (!hydrated) return;
-    savePersistedState({ assumptions, sortKey });
-  }, [hydrated, assumptions, sortKey]);
+    savePersistedState({ assumptions, sortKey, backup_care_hubs: backupCareHubs });
+  }, [hydrated, assumptions, sortKey, backupCareHubs]);
 
   // lib/scoring.ts's scoreAll() is the single source of scored/ranked
   // output — this component never re-derives net_cash, feasibility, etc.
@@ -115,9 +123,30 @@ export default function Home() {
   // seed data except for the `user_added` flag ranked-table.tsx reads to
   // render the "unverified" badge (AC4).
   const allStudies = useMemo(() => [...STUDIES, ...userStudies], [userStudies]);
+
+  // story: configurable-backup-care-coverage — the runtime merge. The
+  // static FRIEND_MAP.backup_care_available is (and must stay) permanently
+  // empty; this visitor's own persisted backup_care_hubs is the ONLY thing
+  // that ever populates backup_care_available for scoring. Hub codes that
+  // don't exist in FRIEND_MAP.hubs are silently ignored (e.g. stale/garbage
+  // from a malformed share link). A fresh visitor with no configured hubs
+  // gets back the exact same empty map FRIEND_MAP already has — no free
+  // coverage anywhere until they add one themselves.
+  const effectiveFriendMap = useMemo<FriendMap>(() => {
+    const backup_care_available: Record<string, BackupCareHub> = {};
+    for (const hub of backupCareHubs) {
+      if (hub in FRIEND_MAP.hubs) {
+        backup_care_available[hub] = {
+          note: "You said you personally have coverage here — not a fact about this clinic or city.",
+        };
+      }
+    }
+    return { hubs: FRIEND_MAP.hubs, backup_care_available };
+  }, [backupCareHubs]);
+
   const { eligible, blocked } = useMemo(
-    () => scoreAll(allStudies, DEMO_PROFILE, assumptions, FRIEND_MAP),
-    [allStudies, assumptions],
+    () => scoreAll(allStudies, DEMO_PROFILE, assumptions, effectiveFriendMap),
+    [allStudies, assumptions, effectiveFriendMap],
   );
 
   const ranked = useMemo(() => sortEligible(eligible, sortKey), [eligible, sortKey]);
@@ -162,12 +191,15 @@ export default function Home() {
           onReset={() => {
             setAssumptions(DEFAULT_ASSUMPTIONS);
             setSortKey(DEFAULT_SORT_KEY);
+            setBackupCareHubs([]);
           }}
-          backupCareHubs={BACKUP_CARE_HUBS}
+          availableBackupCareHubs={AVAILABLE_BACKUP_CARE_HUBS}
+          backupCareHubs={backupCareHubs}
+          onBackupCareHubsChange={setBackupCareHubs}
         />
 
         <div className="flex justify-end">
-          <ShareButton state={{ assumptions, sortKey }} />
+          <ShareButton state={{ assumptions, sortKey, backup_care_hubs: backupCareHubs }} />
         </div>
 
         <AddStudyForm onAdd={(study) => setUserStudies(addUserStudy(study))} />
