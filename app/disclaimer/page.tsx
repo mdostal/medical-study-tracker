@@ -78,6 +78,36 @@ export default function DisclaimerPage() {
 
       <section className="space-y-2">
         <h2 className="text-base font-semibold tracking-tight">
+          Not affiliated with any network or company listed
+        </h2>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          This tool is not affiliated with, sponsored by, or endorsed by ICON,
+          PPD/Thermo Fisher, Fortrea, Celerion, Altasciences, Spaulding
+          Clinical, Nucleus Network, Frontage, BioPharma Services, Worldwide
+          Clinical Trials, JBR/CenExel, or any other network, company, or
+          clinic listed here — see the{" "}
+          <Link
+            href="/networks"
+            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+          >
+            network directory
+          </Link>{" "}
+          for the full list. Their names, sites, and study data appear here
+          only because they publish it publicly; this tool has no business
+          relationship with any of them. The same goes for the sites listed on{" "}
+          <Link
+            href="/resources"
+            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+          >
+            Resources
+          </Link>{" "}
+          — including JALR and Study Scavenger, which are independent,
+          unaffiliated projects run by other people.
+        </p>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-base font-semibold tracking-tight">
           The harm-liability gap
         </h2>
         <p className="text-sm leading-relaxed text-muted-foreground">

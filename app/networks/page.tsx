@@ -455,50 +455,17 @@ export default function NetworksPage() {
         </section>
       )}
 
-      <section className="mx-auto max-w-[1100px] space-y-3 rounded-xl border bg-card p-5">
-        <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Other resources
-        </h2>
-        <p className="max-w-[70ch] text-sm text-muted-foreground">
-          Complementary cross-reference tools — not competitors — worth checking directly if this
-          directory doesn&apos;t have what you&apos;re looking for. Neither publishes structured
-          pay/eligibility data the way the networks above do, so nothing from these is pulled into
-          this tool&apos;s ranking; they&apos;re just good places to look further.
-        </p>
-        <ul className="space-y-2 text-sm">
-          <li>
-            <a
-              href="https://jalr.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
-            >
-              jalr.org
-            </a>{" "}
-            <span className="text-muted-foreground">
-              — &ldquo;Just Another Lab Rat!&rdquo;, a community-run directory + forum covering
-              Phase-1 clinics nationally, plus separate directories for university-run and
-              patient (Phase II-IV) clinics. The source for the &ldquo;discovered&rdquo; entries
-              above.
-            </span>
-          </li>
-          <li>
-            <a
-              href="https://studyscavenger.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
-            >
-              Study Scavenger
-            </a>{" "}
-            <span className="text-muted-foreground">
-              — a patient/volunteer-facing trial-matching search (by zip code, compensation, or
-              health condition) run by the same team that maintains jalr.org&apos;s clinic
-              listings.
-            </span>
-          </li>
-        </ul>
-      </section>
+      <p className="mx-auto max-w-[1100px] text-sm text-muted-foreground">
+        Looking for other places to check, or where the &ldquo;discovered&rdquo; entries above come
+        from? See{" "}
+        <Link
+          href="/resources"
+          className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+        >
+          Resources
+        </Link>
+        .
+      </p>
 
       <section className="mx-auto max-w-[1100px] space-y-3 rounded-xl border bg-card p-5">
         <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
