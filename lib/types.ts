@@ -64,6 +64,332 @@ export interface Study {
   user_added?: boolean;
 }
 
+// --- Application / chase-tracking record ------------------------------------
+//
+// docs/APPLICATION-TRACKING.md "Data model" + "Lifecycle / status pipeline"
+// sections — this type set is intentionally separate from the pre-existing,
+// simpler StudyStatus in lib/local-status-store.ts (a different, older
+// per-study status pill, left as-is; not this feature). One Application
+// record exists per (visitor, study) — captured only in this visitor's own
+// browser via lib/application-store.ts, never sent to a server. Every
+// example value anywhere in this file/its tests is a generic placeholder —
+// never real personal data (see this story's PII acceptance criterion).
+
+// How this application reaches a screening — each channel has a different
+// chase + confirmation path (docs/APPLICATION-TRACKING.md "Core truths").
+export type ApplicationChannel =
+  | "self_book" // visitor books their own screening slot directly, no waiting
+  | "call" // must call the clinic to push/schedule
+  | "apply_form_fillout" // a Fillout-style form; sends no confirmation email
+  | "syndicated_external"; // applied on another site entirely
+
+const APPLICATION_CHANNELS: readonly ApplicationChannel[] = [
+  "self_book",
+  "call",
+  "apply_form_fillout",
+  "syndicated_external",
+];
+
+// The funnel pipeline, per docs/APPLICATION-TRACKING.md:
+//   identified -> applied|booked -> phone-screen -> screening-scheduled ->
+//   screened -> qualified/offered -> enrolled -> dosing -> PAID
+// plus terminal off-ramps reachable from any point in the pipeline.
+export type LifecycleStatus =
+  | "identified"
+  | "applied"
+  | "booked"
+  | "phone-screen"
+  | "screening-scheduled"
+  | "screened"
+  | "qualified"
+  | "offered"
+  | "enrolled"
+  | "dosing"
+  | "paid"
+  | "not-eligible"
+  | "declined"
+  | "cohort-full"
+  | "closed";
+
+// The pipeline above, encoded stage-by-stage — each inner array is one
+// stage; more than one entry means alternate statuses for that stage
+// (channel-dependent, e.g. applied|booked), not a further sub-split. Matches
+// docs/APPLICATION-TRACKING.md's arrow diagram exactly.
+export const LIFECYCLE_PIPELINE: readonly (readonly LifecycleStatus[])[] = [
+  ["identified"],
+  ["applied", "booked"],
+  ["phone-screen"],
+  ["screening-scheduled"],
+  ["screened"],
+  ["qualified", "offered"],
+  ["enrolled"],
+  ["dosing"],
+  ["paid"],
+];
+
+// Off-ramps reachable from ANY point in the pipeline above (docs: "terminal
+// off-ramps at any point"). This module deliberately does not enforce a
+// transition graph/state machine — `Application.status` type-checks as any
+// LifecycleStatus regardless of the previous value — which is exactly how
+// "reachable from any point" is satisfied at the data layer; a future UI
+// story can layer stricter transition rules on top without changing this
+// type.
+export const TERMINAL_LIFECYCLE_STATUSES: readonly LifecycleStatus[] = [
+  "not-eligible",
+  "declined",
+  "cohort-full",
+  "closed",
+];
+
+const LIFECYCLE_STATUSES: readonly LifecycleStatus[] = [
+  ...LIFECYCLE_PIPELINE.flat(),
+  ...TERMINAL_LIFECYCLE_STATUSES,
+];
+
+// "Whose move is it" — separate from LifecycleStatus (which stage of the
+// funnel this is who needs to act next within that stage).
+export type ChaseState = "on_me" | "waiting" | "stale" | "done";
+
+const CHASE_STATES: readonly ChaseState[] = ["on_me", "waiting", "stale", "done"];
+
+export type Urgency = "now" | "this_week" | "normal";
+
+const URGENCIES: readonly Urgency[] = ["now", "this_week", "normal"];
+
+// One phone call/screening interaction, logged chronologically. `who` is a
+// role/description (e.g. "clinic coordinator"), never expected to hold a
+// real person's name.
+export interface CallEntry {
+  date: string;
+  who: string;
+  summary: string;
+}
+
+// Whether this application actually landed anywhere. Fillout/syndicated
+// channels send no confirmation email (docs "The no-email-confirmation gap
+// is real"), so this has to be tracked by hand rather than inferred.
+export interface ApplicationConfirmation {
+  has_number: boolean;
+  confirmed_in_system: boolean;
+  no_email_flag: boolean;
+  ref?: string;
+}
+
+// `tz` drives the "callable now" business-hours check (docs "Recruiting
+// runs business hours").
+export interface ApplicationContact {
+  phone?: string;
+  scheduler_url?: string;
+  tz?: string;
+}
+
+// The call-log write-back capture (docs "Call-log capture — the 5
+// questions"). Populated on the screening call; a later story feeds these
+// into lib/scoring.ts to replace estimated values with confirmed ones.
+export interface ConfirmedOnCall {
+  nights?: number[];
+  visits?: number;
+  bmi_ok?: boolean;
+}
+
+export interface Application {
+  study_id: string;
+  channel: ApplicationChannel;
+  status: LifecycleStatus;
+  chase_state: ChaseState;
+  applied_date?: string;
+  confirmation: ApplicationConfirmation;
+  contact: ApplicationContact;
+  next_action?: string; // e.g. "self-book screening" | "call to push" | "await cohort dates"
+  next_action_due?: string; // cohort deadline / follow-up-by date -> drives nudges
+  urgency?: Urgency;
+  call_log: CallEntry[];
+  // Captured on the screening call — write back onto the Study + engine
+  // (docs "these WRITE BACK into the Study + engine"). This story only
+  // stores them; the write-back itself is a later story.
+  screening_date?: string;
+  cohort_dates?: string[];
+  confirmed: ConfirmedOnCall;
+  payout?: Payout; // feeds cash_velocity
+  washout_days?: number | null; // feeds the stack planner
+  stipend_per_visit?: number | null;
+  notes?: string;
+}
+
+export const DEFAULT_APPLICATION_CHANNEL: ApplicationChannel = "apply_form_fillout";
+export const DEFAULT_LIFECYCLE_STATUS: LifecycleStatus = "identified";
+export const DEFAULT_CHASE_STATE: ChaseState = "on_me";
+
+function isApplicationChannel(value: unknown): value is ApplicationChannel {
+  return typeof value === "string" && (APPLICATION_CHANNELS as readonly string[]).includes(value);
+}
+
+function isLifecycleStatus(value: unknown): value is LifecycleStatus {
+  return typeof value === "string" && (LIFECYCLE_STATUSES as readonly string[]).includes(value);
+}
+
+function isChaseState(value: unknown): value is ChaseState {
+  return typeof value === "string" && (CHASE_STATES as readonly string[]).includes(value);
+}
+
+function isUrgency(value: unknown): value is Urgency {
+  return typeof value === "string" && (URGENCIES as readonly string[]).includes(value);
+}
+
+const DEFAULT_APPLICATION_CONFIRMATION: ApplicationConfirmation = {
+  has_number: false,
+  confirmed_in_system: false,
+  no_email_flag: false,
+};
+
+function sanitizeConfirmation(value: unknown): ApplicationConfirmation {
+  const src = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
+  const out: ApplicationConfirmation = {
+    has_number: bool(src.has_number, DEFAULT_APPLICATION_CONFIRMATION.has_number),
+    confirmed_in_system: bool(
+      src.confirmed_in_system,
+      DEFAULT_APPLICATION_CONFIRMATION.confirmed_in_system,
+    ),
+    no_email_flag: bool(src.no_email_flag, DEFAULT_APPLICATION_CONFIRMATION.no_email_flag),
+  };
+  if (typeof src.ref === "string") out.ref = src.ref;
+  return out;
+}
+
+function sanitizeContact(value: unknown): ApplicationContact {
+  const src = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  const out: ApplicationContact = {};
+  if (typeof src.phone === "string") out.phone = src.phone;
+  if (typeof src.scheduler_url === "string") out.scheduler_url = src.scheduler_url;
+  if (typeof src.tz === "string") out.tz = src.tz;
+  return out;
+}
+
+function isCallEntry(value: unknown): value is CallEntry {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.date === "string" && typeof v.who === "string" && typeof v.summary === "string";
+}
+
+function sanitizeCallLog(value: unknown): CallEntry[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isCallEntry).map((entry) => ({
+    date: entry.date,
+    who: entry.who,
+    summary: entry.summary,
+  }));
+}
+
+function sanitizeConfirmedOnCall(value: unknown): ConfirmedOnCall {
+  const src = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  const out: ConfirmedOnCall = {};
+  if (
+    Array.isArray(src.nights) &&
+    src.nights.every((n) => typeof n === "number" && Number.isFinite(n))
+  ) {
+    out.nights = src.nights as number[];
+  }
+  if (typeof src.visits === "number" && Number.isFinite(src.visits)) out.visits = src.visits;
+  if (typeof src.bmi_ok === "boolean") out.bmi_ok = src.bmi_ok;
+  return out;
+}
+
+const PAYOUT_TYPES: readonly PayoutType[] = ["lump_end", "prorated", "milestone", "unknown"];
+
+function isPayoutType(value: unknown): value is PayoutType {
+  return typeof value === "string" && (PAYOUT_TYPES as readonly string[]).includes(value);
+}
+
+function sanitizeApplicationPayout(value: unknown): Payout | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const src = value as Record<string, unknown>;
+  if (!isPayoutType(src.type)) return undefined;
+  const settle_days =
+    typeof src.settle_days === "number" && Number.isFinite(src.settle_days) ? src.settle_days : null;
+  const out: Payout = { type: src.type, settle_days };
+  if (typeof src.note === "string") out.note = src.note;
+  return out;
+}
+
+/**
+ * Normalize arbitrary/untrusted input (parsed JSON from localStorage or a
+ * share-link URL) into a valid Application. Never throws — anything
+ * missing, malformed, or wrong-typed falls back to a default field-by-field,
+ * same discipline as sanitizePersistedState below. `studyId` always wins
+ * over any embedded `study_id` on the input, so a map entry can never
+ * disagree with its own key (same never-trust-embedded-value discipline as
+ * lib/profile-store.ts's addUserStudy forcing user_added:true).
+ */
+export function sanitizeApplication(value: unknown, studyId: string): Application {
+  const src = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+
+  const app: Application = {
+    study_id: studyId,
+    channel: isApplicationChannel(src.channel) ? src.channel : DEFAULT_APPLICATION_CHANNEL,
+    status: isLifecycleStatus(src.status) ? src.status : DEFAULT_LIFECYCLE_STATUS,
+    chase_state: isChaseState(src.chase_state) ? src.chase_state : DEFAULT_CHASE_STATE,
+    confirmation: sanitizeConfirmation(src.confirmation),
+    contact: sanitizeContact(src.contact),
+    call_log: sanitizeCallLog(src.call_log),
+    confirmed: sanitizeConfirmedOnCall(src.confirmed),
+  };
+
+  if (typeof src.applied_date === "string") app.applied_date = src.applied_date;
+  if (typeof src.next_action === "string") app.next_action = src.next_action;
+  if (typeof src.next_action_due === "string") app.next_action_due = src.next_action_due;
+  if (isUrgency(src.urgency)) app.urgency = src.urgency;
+  if (typeof src.screening_date === "string") app.screening_date = src.screening_date;
+  if (
+    Array.isArray(src.cohort_dates) &&
+    src.cohort_dates.every((d) => typeof d === "string")
+  ) {
+    app.cohort_dates = src.cohort_dates as string[];
+  }
+  const payout = sanitizeApplicationPayout(src.payout);
+  if (payout) app.payout = payout;
+  if (src.washout_days === null) {
+    app.washout_days = null;
+  } else if (typeof src.washout_days === "number" && Number.isFinite(src.washout_days)) {
+    app.washout_days = src.washout_days;
+  }
+  if (src.stipend_per_visit === null) {
+    app.stipend_per_visit = null;
+  } else if (
+    typeof src.stipend_per_visit === "number" &&
+    Number.isFinite(src.stipend_per_visit)
+  ) {
+    app.stipend_per_visit = src.stipend_per_visit;
+  }
+  if (typeof src.notes === "string") app.notes = src.notes;
+
+  return app;
+}
+
+/**
+ * Normalize an arbitrary/untrusted { study_id: Application } map (parsed
+ * JSON from localStorage or a share-link URL) the same never-throw way
+ * sanitizeApplication normalizes one record. Non-object/array input and
+ * non-string/empty keys are dropped rather than trusted.
+ */
+export function sanitizeApplicationsMap(value: unknown): Record<string, Application> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out: Record<string, Application> = {};
+  for (const [studyId, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof studyId !== "string" || studyId.length === 0) continue;
+    out[studyId] = sanitizeApplication(raw, studyId);
+  }
+  return out;
+}
+
+/** Builds a fresh Application record for a study, defaults everywhere else. */
+export function createApplication(
+  studyId: string,
+  channel: ApplicationChannel = DEFAULT_APPLICATION_CHANNEL,
+): Application {
+  return sanitizeApplication({ channel }, studyId);
+}
+
 export interface Profile {
   bmi: number;
   weight_lb: number;

@@ -22,9 +22,28 @@
 // Node/vitest — never `localStorage` or `window`. That's lib/profile-store.ts's
 // job, not this one's.
 
-import { sanitizePersistedState, type PersistedState } from "./types";
+import {
+  sanitizeApplicationsMap,
+  sanitizePersistedState,
+  type Application,
+  type PersistedState,
+} from "./types";
 
 export const SHARE_PARAM = "s";
+
+// story: application-data-model-and-persistence — a second, parallel
+// base64url-JSON-blob param for the Application/chase-tracking map, using
+// the exact same encodeBase64Url/decodeBase64Url helpers and
+// never-throw-fall-back-to-sanitized-defaults shape as SHARE_PARAM/
+// encodeShareState/decodeShareState above ("included in the share-link
+// encoding the same way Profile is"). Deliberately kept as its own param and
+// function pair rather than folded into PersistedState/sanitizePersistedState
+// itself: PersistedState is the established Profile/Assumptions contract
+// with lib/profile-store.ts and components/share-button.tsx, and this
+// foundation story ships zero UI (no component wires this up yet — that's
+// the separate chase-pipeline-view story) and must not force an unrelated
+// shape/test change onto the existing Profile share flow.
+export const APPLICATIONS_SHARE_PARAM = "sa";
 
 function encodeBase64Url(json: string): string {
   const bytes = new TextEncoder().encode(json);
@@ -76,5 +95,48 @@ export function decodeShareState(search: string | URLSearchParams): PersistedSta
     return sanitizePersistedState(JSON.parse(decodeBase64Url(raw)));
   } catch {
     return sanitizePersistedState(undefined);
+  }
+}
+
+/** Encodes an Applications map into the opaque value that goes in the `sa` query param. */
+export function encodeApplicationsShareState(applications: Record<string, Application>): string {
+  try {
+    return encodeBase64Url(JSON.stringify(applications));
+  } catch {
+    return "";
+  }
+}
+
+/** Builds a full share URL from a base URL (origin + pathname) and an Applications map. */
+export function buildApplicationsShareUrl(
+  baseUrl: string,
+  applications: Record<string, Application>,
+): string {
+  const url = new URL(baseUrl);
+  const encoded = encodeApplicationsShareState(applications);
+  if (encoded) {
+    url.searchParams.set(APPLICATIONS_SHARE_PARAM, encoded);
+  } else {
+    url.searchParams.delete(APPLICATIONS_SHARE_PARAM);
+  }
+  return url.toString();
+}
+
+/**
+ * Decodes an Applications map out of a URL's search string/params. Missing
+ * or malformed input (bad base64, invalid JSON, wrong shape) always falls
+ * back to sanitizeApplicationsMap's default ({}) rather than throwing — same
+ * "malformed share link" discipline as decodeShareState above.
+ */
+export function decodeApplicationsShareState(
+  search: string | URLSearchParams,
+): Record<string, Application> {
+  const params = typeof search === "string" ? new URLSearchParams(search) : search;
+  const raw = params.get(APPLICATIONS_SHARE_PARAM);
+  if (!raw) return sanitizeApplicationsMap(undefined);
+  try {
+    return sanitizeApplicationsMap(JSON.parse(decodeBase64Url(raw)));
+  } catch {
+    return sanitizeApplicationsMap(undefined);
   }
 }
