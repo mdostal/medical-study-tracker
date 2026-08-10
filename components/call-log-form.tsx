@@ -33,7 +33,11 @@ import type { SubmitCorrectionResponse } from "@/app/api/submit-correction/route
 // Every placeholder/example value below is a generic, made-up number --
 // never real personal data (see this story's PII acceptance criterion).
 
-export const APPLICATION_CHANGE_EVENT = "mst:application-changed";
+// Re-exported for existing importers (app/page.tsx) -- now defined and
+// dispatched centrally in lib/application-store.ts so every write path
+// (call-log saves here, status cycles in chase-pipeline-table.tsx, stale
+// flips in do-today-queue.tsx) notifies consistently, not just this form.
+export { APPLICATION_CHANGE_EVENT } from "@/lib/application-store";
 
 const PAYOUT_TYPE_OPTIONS: { value: PayoutType; label: string }[] = [
   { value: "lump_end", label: "Lump sum, end of confinement" },
@@ -100,9 +104,9 @@ export function CallLogForm({
     // today's date pre-filled -- matches components/correction-form.tsx's
     // own "clear the form on a successful submit" pattern.
     setInputs({ date: todayISO(), ...EMPTY_INPUTS });
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event(APPLICATION_CHANGE_EVENT));
-    }
+    // upsertApplication -> saveApplications already dispatches
+    // APPLICATION_CHANGE_EVENT (lib/application-store.ts) -- no manual
+    // dispatch needed here.
     onSaved?.(updated);
   }
 

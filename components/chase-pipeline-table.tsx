@@ -9,7 +9,11 @@ import type {
   Urgency,
 } from "@/lib/types";
 import { LIFECYCLE_PIPELINE, TERMINAL_LIFECYCLE_STATUSES } from "@/lib/types";
-import { loadApplications, upsertApplication } from "@/lib/application-store";
+import {
+  APPLICATION_CHANGE_EVENT,
+  loadApplications,
+  upsertApplication,
+} from "@/lib/application-store";
 import { isCallableNow } from "@/lib/business-hours";
 import { fmtGross, fmtUSD } from "@/lib/format";
 import {
@@ -20,6 +24,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { CallLogForm } from "@/components/call-log-form";
 import { cn } from "@/lib/utils";
 
 // Per-study Chase/Pipeline view (docs/APPLICATION-TRACKING.md "UI" section):
@@ -239,10 +245,32 @@ function ChaseStatusPill({
 // expand-in-place row rather than an overlay/side-drawer, so it never risks
 // its own horizontal overflow on a 390px viewport (same overflow-x-auto
 // discipline this table's own wide columns already rely on).
-function DetailPanel({ application }: { application: Application }) {
+function DetailPanel({
+  application,
+  studyId,
+  studyLabel,
+}: {
+  application: Application;
+  studyId: string;
+  studyLabel: string;
+}) {
   const { confirmed, payout, washout_days, stipend_per_visit, notes, call_log } = application;
+  const [logging, setLogging] = useState(false);
   return (
     <div className="space-y-3 rounded-lg border bg-muted/20 p-3 text-[0.74rem]">
+      {logging ? (
+        <CallLogForm
+          studyId={studyId}
+          studyLabel={studyLabel}
+          onClose={() => setLogging(false)}
+        />
+      ) : (
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={() => setLogging(true)}>
+            Log a call
+          </Button>
+        </div>
+      )}
       <div className="grid min-w-0 gap-x-6 gap-y-1.5 sm:grid-cols-3">
         <div className="min-w-0">
           <span className="text-muted-foreground">Nights confirmed </span>
@@ -323,6 +351,19 @@ export function ChasePipelineTable({ studies }: { studies: Study[] }) {
   useEffect(() => {
     setApplications(loadApplications());
     setHydrated(true);
+  }, []);
+
+  // Refresh whenever a call log is saved (components/call-log-form.tsx,
+  // rendered inline in DetailPanel below) or a status is cycled elsewhere
+  // (components/do-today-queue.tsx) -- every write anywhere dispatches this
+  // via lib/application-store.ts, so this view never goes stale without a
+  // full reload.
+  useEffect(() => {
+    function onChange() {
+      setApplications(loadApplications());
+    }
+    window.addEventListener(APPLICATION_CHANGE_EVENT, onChange);
+    return () => window.removeEventListener(APPLICATION_CHANGE_EVENT, onChange);
   }, []);
 
   function handleCycle(row: Row) {
@@ -436,7 +477,11 @@ export function ChasePipelineTable({ studies }: { studies: Study[] }) {
                     {isOpen && (
                       <TableRow className="hover:bg-transparent">
                         <TableCell colSpan={6} className="bg-transparent p-3">
-                          <DetailPanel application={row.application} />
+                          <DetailPanel
+                            application={row.application}
+                            studyId={row.study.id}
+                            studyLabel={row.study.id}
+                          />
                         </TableCell>
                       </TableRow>
                     )}

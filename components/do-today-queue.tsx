@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Application, Study, Urgency } from "@/lib/types";
-import { loadApplications, saveApplications } from "@/lib/application-store";
+import {
+  APPLICATION_CHANGE_EVENT,
+  loadApplications,
+  saveApplications,
+} from "@/lib/application-store";
 import { isCallableNow } from "@/lib/business-hours";
 import {
   STALE_AFTER_BUSINESS_DAYS,
@@ -242,6 +246,17 @@ export function DoTodayQueue({ studies }: { studies: Study[] }) {
     }
     setApplications(flipped);
     setHydrated(true);
+  }, []);
+
+  // Refresh whenever a call log is saved or a status is cycled in
+  // components/chase-pipeline-table.tsx (or anywhere else) -- same
+  // cross-view sync as that component's own listener.
+  useEffect(() => {
+    function onChange() {
+      setApplications(loadApplications());
+    }
+    window.addEventListener(APPLICATION_CHANGE_EVENT, onChange);
+    return () => window.removeEventListener(APPLICATION_CHANGE_EVENT, onChange);
   }, []);
 
   const allRows = useMemo(

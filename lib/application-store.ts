@@ -19,9 +19,8 @@
 // from localStorage" and "restore from a share link" fall back to the exact
 // same defaults the exact same way.
 //
-// This story (application-data-model-and-persistence) ships zero UI — no
-// component in this repo imports this module yet. The Chase Pipeline view
-// that consumes it is the separate chase-pipeline-view story.
+// Consumed by components/chase-pipeline-table.tsx, components/do-today-queue.tsx,
+// components/call-log-form.tsx, and app/page.tsx's personal-overlay write-back.
 
 import {
   createApplication,
@@ -33,11 +32,32 @@ export { createApplication } from "./types";
 
 const STORAGE_KEY = "mst.applications.v1";
 
+// Same cross-component same-tab-notification pattern lib/local-status-store.ts
+// already established with STATUS_CHANGE_EVENT: every mounted view of this
+// data (components/chase-pipeline-table.tsx, components/do-today-queue.tsx,
+// app/page.tsx's ranked-table overlay) reads its own copy via useState, so
+// without this, a write in one view (a call-log save, a status cycle) would
+// silently go stale in every other mounted view until a full page reload.
+// Dispatched from saveApplications() so every write path (upsertApplication,
+// removeApplication, startApplication) notifies consistently from one place,
+// not from each call site individually.
+export const APPLICATION_CHANGE_EVENT = "mst:application-changed";
+
 function hasLocalStorage(): boolean {
   try {
     return typeof localStorage !== "undefined";
   } catch {
     return false;
+  }
+}
+
+function notifyApplicationsChanged(): void {
+  try {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(APPLICATION_CHANGE_EVENT));
+    }
+  } catch {
+    // non-browser environment (tests, SSR) — no-op
   }
 }
 
@@ -58,6 +78,7 @@ export function saveApplications(applications: Record<string, Application>): voi
   if (!hasLocalStorage()) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(applications));
+    notifyApplicationsChanged();
   } catch {
     // Private-browsing quota, disabled storage, etc. — fail silently; the
     // in-memory UI state still works for the rest of this page view, it
