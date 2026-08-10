@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Assumptions, BackupCareHub, FriendMap, Profile, SortKey, Study } from "@/lib/types";
+import type { Application, Assumptions, BackupCareHub, FriendMap, Profile, SortKey, Study } from "@/lib/types";
 import { DEFAULT_ASSUMPTIONS, DEFAULT_SORT_KEY, sanitizePersistedState } from "@/lib/types";
 import { scoreAll } from "@/lib/scoring";
 import { addUserStudy, loadPersistedState, loadUserStudies, savePersistedState } from "@/lib/profile-store";
+import { loadApplications } from "@/lib/application-store";
+import { applyPersonalOverlay } from "@/lib/personal-overlay";
 import { decodeShareState, SHARE_PARAM } from "@/lib/share-link";
 import { AddStudyForm } from "@/components/add-study-form";
+import { APPLICATION_CHANGE_EVENT } from "@/components/call-log-form";
 import { ProfilePanel } from "@/components/profile-panel";
 import { RankedTable, sortEligible } from "@/components/ranked-table";
 import { ShareButton } from "@/components/share-button";
@@ -85,6 +88,16 @@ export default function Home() {
   // visitor's own local additions, not part of the shareable view.
   const [userStudies, setUserStudies] = useState<Study[]>([]);
 
+  // story: call-log-writeback — THIS visitor's own confirmed call-log data
+  // (lib/application-store.ts's { study_id: Application } map), restored in
+  // the same hydrate effect as everything else below and re-read whenever
+  // components/call-log-form.tsx saves a new entry (APPLICATION_CHANGE_EVENT,
+  // same same-tab-notification pattern as lib/local-status-store.ts's own
+  // STATUS_CHANGE_EVENT). Never encoded into a share link (unlike
+  // Profile/Assumptions) — this is private, per-visitor call-log data, not
+  // part of the shareable view, same posture as userStudies just above.
+  const [applications, setApplications] = useState<Record<string, Application>>({});
+
   // Restore-once-on-mount: a share link's `?s=` param wins over localStorage
   // (an explicit link someone sent you should reproduce what they saw, not
   // silently merge with whatever you already had saved), and localStorage
@@ -103,7 +116,22 @@ export default function Home() {
     setSortKey(restored.sortKey);
     setBackupCareHubs(restored.backup_care_hubs);
     setUserStudies(loadUserStudies());
+    setApplications(loadApplications());
     setHydrated(true);
+  }, []);
+
+  // story: call-log-writeback — re-read the Application map whenever a
+  // call-log entry is saved anywhere on the page (a future per-study drawer,
+  // story: chase-pipeline-view). This component never writes to
+  // lib/application-store.ts itself — components/call-log-form.tsx owns
+  // every write; this effect only reacts to the same-tab notification it
+  // dispatches after one.
+  useEffect(() => {
+    function onApplicationsChanged() {
+      setApplications(loadApplications());
+    }
+    window.addEventListener(APPLICATION_CHANGE_EVENT, onApplicationsChanged);
+    return () => window.removeEventListener(APPLICATION_CHANGE_EVENT, onApplicationsChanged);
   }, []);
 
   // Persist every subsequent change back to localStorage — but only after
@@ -123,6 +151,21 @@ export default function Home() {
   // seed data except for the `user_added` flag ranked-table.tsx reads to
   // render the "unverified" badge (AC4).
   const allStudies = useMemo(() => [...STUDIES, ...userStudies], [userStudies]);
+
+  // story: call-log-writeback — this visitor's own confirmed call-log data
+  // overrides the base seed's unconfirmed/estimated values (nights, payout
+  // timing, washout, stipend, BMI-fit) BEFORE scoring, per
+  // lib/personal-overlay.ts's own header comment. Scoped to this visitor's
+  // localStorage only (`applications`) — data/studies.seed.json itself is
+  // never touched (AC4), and lib/scoring.ts stays completely unmodified:
+  // this only changes scoreAll()'s Study[] *input*, never its logic (AC3 +
+  // this story's review step). A visitor who never logs a call has an empty
+  // `applications` map, so personallyConfirmedStudies is value-identical to
+  // allStudies and every downstream computation is unchanged.
+  const personallyConfirmedStudies = useMemo(
+    () => applyPersonalOverlay(allStudies, applications),
+    [allStudies, applications],
+  );
 
   // story: configurable-backup-care-coverage — the runtime merge. The
   // static FRIEND_MAP.backup_care_available is (and must stay) permanently
@@ -145,8 +188,8 @@ export default function Home() {
   }, [backupCareHubs]);
 
   const { eligible, blocked } = useMemo(
-    () => scoreAll(allStudies, DEMO_PROFILE, assumptions, effectiveFriendMap),
-    [allStudies, assumptions, effectiveFriendMap],
+    () => scoreAll(personallyConfirmedStudies, DEMO_PROFILE, assumptions, effectiveFriendMap),
+    [personallyConfirmedStudies, assumptions, effectiveFriendMap],
   );
 
   const ranked = useMemo(() => sortEligible(eligible, sortKey), [eligible, sortKey]);
