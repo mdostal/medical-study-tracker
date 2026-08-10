@@ -71,7 +71,14 @@ This is the loop: **rank → apply → chase → capture → re-rank.** Every ca
 - **Follow-up cadence:** if `waiting` and no movement in N days → flip to `stale`, prompt a re-call.
 - **Confirmation recovery:** for Fillout/syndicated apps with no email, offer a browser-history mine
   (same pattern as `command-center/job-hunt/mine-fractional-apps.sh`) to recover which forms were
-  actually opened/submitted; otherwise the user hand-marks `applied` at submit-time.
+  actually opened/submitted; otherwise the user hand-marks `applied` at submit-time. Shipped as
+  `scripts/mine-study-applications.sh` — a standalone local script the visitor runs on their own
+  machine (never a web-app feature; a browser tab has no API to read another app's local browser
+  history). The Chase/Pipeline view and the call-log form should surface a short note pointing to
+  this script whenever a `apply_form_fillout`/`syndicated_external` application has
+  `confirmation.no_email_flag` set and isn't yet `confirmed_in_system`, e.g. "No confirmation email
+  for this one — run `scripts/mine-study-applications.sh` locally to check your browser history"
+  — rather than attempting to run it in-browser.
 
 ## UI
 - **Pipeline / Chase view** — list or kanban by lifecycle status; each row shows next-action, a
