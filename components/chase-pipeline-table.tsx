@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import type {
   Application,
   ApplicationChannel,
+  ChaseState,
   LifecycleStatus,
   Study,
   Urgency,
@@ -67,6 +68,36 @@ const CHANNEL_LABEL: Record<ApplicationChannel, string> = {
   syndicated_external: "syndicated",
 };
 
+const STATUS_LABEL: Record<LifecycleStatus, string> = {
+  identified: "Identified",
+  applied: "Applied / submitted",
+  booked: "Booked",
+  "phone-screen": "Phone screen",
+  "screening-scheduled": "Screening scheduled",
+  screened: "Screened",
+  qualified: "Qualified",
+  offered: "Offered",
+  enrolled: "Enrolled",
+  dosing: "Dosing",
+  paid: "Paid",
+  "not-eligible": "Not eligible",
+  declined: "Declined",
+  "cohort-full": "Cohort full",
+  closed: "Closed",
+};
+
+// "Whose move is it" -- separate axis from LifecycleStatus (lib/chase-nudges.ts
+// reads this to build the Do-today queue and the stale/re-call prompt). Labeled
+// in plain chase-workflow terms: submitted (on_me/waiting handoff already
+// happened) -> waiting on them -> gone quiet, follow up (auto-flips here after
+// STALE_AFTER_BUSINESS_DAYS with no movement) -> done.
+const CHASE_STATE_LABEL: Record<ChaseState, string> = {
+  on_me: "On me",
+  waiting: "Waiting on them",
+  stale: "Follow up (stale)",
+  done: "Done",
+};
+
 const URGENCY_RANK: Record<Urgency, number> = { now: 0, this_week: 1, normal: 2 };
 
 function urgencyRank(u: Urgency | undefined): number {
@@ -81,12 +112,15 @@ function stageIndexFor(status: LifecycleStatus): number {
   return -1;
 }
 
-/** Advances one step through the funnel stages, wrapping back to the start -- same click-to-cycle convention as lib/local-status-store.ts's cycleStatus. A terminal (off-ramp) status also wraps back to the funnel start, since off-ramps aren't part of the cyclable sequence. */
-function cycleLifecycleStatus(current: LifecycleStatus): LifecycleStatus {
-  const flat = LIFECYCLE_PIPELINE.flat();
-  const idx = flat.indexOf(current);
-  const next = idx === -1 ? 0 : (idx + 1) % flat.length;
-  return flat[next];
+const FLAT_PIPELINE: readonly LifecycleStatus[] = LIFECYCLE_PIPELINE.flat();
+
+/** Moves one step forward/back through the funnel stages, clamped at both ends -- a stepper, not a cycle, so a click never skips past where you meant to land. A terminal (off-ramp) status has no pipeline index; either direction re-enters the pipeline at its start (use the dropdown to pick a terminal status directly). */
+function stepLifecycleStatus(current: LifecycleStatus, direction: 1 | -1): LifecycleStatus {
+  const idx = FLAT_PIPELINE.indexOf(current);
+  if (idx === -1) return FLAT_PIPELINE[0];
+  const next = idx + direction;
+  if (next < 0 || next >= FLAT_PIPELINE.length) return current;
+  return FLAT_PIPELINE[next];
 }
 
 function telHref(phone: string): string {
@@ -212,31 +246,108 @@ function DoAction({ application }: { application: Application }) {
   );
 }
 
+// Forward/back nudge (one pipeline stage at a time) + a direct-choose dropdown
+// listing every status -- replaces the old single "click to cycle through ALL
+// statuses" button, which meant going from identified to paid took 8 clicks
+// each rolling through everything in between.
 function ChaseStatusPill({
   status,
-  onCycle,
+  onStep,
+  onSelect,
 }: {
   status: LifecycleStatus;
-  onCycle: () => void;
+  onStep: (direction: 1 | -1) => void;
+  onSelect: (status: LifecycleStatus) => void;
 }) {
   const terminal = (TERMINAL_LIFECYCLE_STATUSES as readonly string[]).includes(status);
+  const idx = FLAT_PIPELINE.indexOf(status);
+  const canBack = idx > 0;
+  const canForward = idx !== -1 && idx < FLAT_PIPELINE.length - 1;
   return (
-    <button
-      type="button"
-      onClick={onCycle}
-      title="Click to advance status"
+    <div className="flex items-center gap-0.5">
+      <button
+        type="button"
+        onClick={() => onStep(-1)}
+        disabled={!canBack}
+        title="Back one stage"
+        className="rounded border border-border px-1 font-mono text-[0.62rem] leading-none text-muted-foreground hover:border-foreground/30 hover:text-foreground disabled:opacity-25"
+      >
+        &lsaquo;
+      </button>
+      <select
+        value={status}
+        onChange={(e) => onSelect(e.target.value as LifecycleStatus)}
+        title="Choose status directly"
+        className={cn(
+          "select-none rounded border bg-muted px-1 py-0.5 font-mono text-[0.62rem] uppercase tracking-wide",
+          "border-border text-muted-foreground",
+          (status === "paid" || status === "enrolled") &&
+            "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+          status === "dosing" && "border-sky-600/30 bg-sky-500/10 text-sky-700 dark:text-sky-400",
+          terminal && "border-red-600/30 bg-red-500/10 text-red-700 dark:text-red-400",
+        )}
+      >
+        <optgroup label="Pipeline">
+          {FLAT_PIPELINE.map((s) => (
+            <option key={s} value={s}>
+              {STATUS_LABEL[s]}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Closed / off-ramp">
+          {TERMINAL_LIFECYCLE_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {STATUS_LABEL[s]}
+            </option>
+          ))}
+        </optgroup>
+      </select>
+      <button
+        type="button"
+        onClick={() => onStep(1)}
+        disabled={!canForward}
+        title="Forward one stage"
+        className="rounded border border-border px-1 font-mono text-[0.62rem] leading-none text-muted-foreground hover:border-foreground/30 hover:text-foreground disabled:opacity-25"
+      >
+        &rsaquo;
+      </button>
+    </div>
+  );
+}
+
+// "Whose move is it" control -- surfaces lib/chase-nudges.ts's chase_state
+// axis, which previously had no editable UI anywhere: nothing ever set it to
+// "waiting", so the Do-today queue's on_me filter and the stale/re-call
+// auto-flip were both effectively dead in practice. This is the
+// submitted -> waiting on them -> follow-up(stale) -> done loop.
+function ChaseStatePill({
+  state,
+  onSelect,
+}: {
+  state: ChaseState;
+  onSelect: (state: ChaseState) => void;
+}) {
+  return (
+    <select
+      value={state}
+      onChange={(e) => onSelect(e.target.value as ChaseState)}
+      title="Whose move is it"
       className={cn(
-        "select-none rounded border px-1.5 py-0.5 font-mono text-[0.62rem] uppercase tracking-wide transition-colors",
-        "border-border bg-muted text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-        (status === "paid" || status === "enrolled") &&
+        "select-none rounded border bg-transparent px-1 py-0.5 font-mono text-[0.58rem] uppercase tracking-wide",
+        state === "on_me" && "border-sky-600/30 bg-sky-500/10 text-sky-700 dark:text-sky-400",
+        state === "waiting" && "border-border text-muted-foreground",
+        state === "stale" &&
+          "border-amber-600/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+        state === "done" &&
           "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-        status === "dosing" &&
-          "border-sky-600/30 bg-sky-500/10 text-sky-700 dark:text-sky-400",
-        terminal && "border-red-600/30 bg-red-500/10 text-red-700 dark:text-red-400",
       )}
     >
-      {status}
-    </button>
+      {(Object.entries(CHASE_STATE_LABEL) as [ChaseState, string][]).map(([value, label]) => (
+        <option key={value} value={value}>
+          {label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -254,20 +365,27 @@ function DetailPanel({
   studyId: string;
   studyLabel: string;
 }) {
-  const { confirmed, payout, washout_days, stipend_per_visit, notes, call_log } = application;
+  const { channel, confirmed, payout, washout_days, stipend_per_visit, notes, call_log } =
+    application;
   const [logging, setLogging] = useState(false);
+  // Form/syndicated channels never involve a phone call at all (e.g. a
+  // "register your interest" web form) -- "log an update" reads honestly for
+  // "I submitted / followed up / heard back", where "log a call" wouldn't.
+  const logKind: "call" | "update" =
+    channel === "apply_form_fillout" || channel === "syndicated_external" ? "update" : "call";
   return (
     <div className="space-y-3 rounded-lg border bg-muted/20 p-3 text-[0.74rem]">
       {logging ? (
         <CallLogForm
           studyId={studyId}
           studyLabel={studyLabel}
+          kind={logKind}
           onClose={() => setLogging(false)}
         />
       ) : (
         <div className="flex justify-end">
           <Button size="sm" variant="outline" onClick={() => setLogging(true)}>
-            Log a call
+            {logKind === "call" ? "Log a call" : "Log an update"}
           </Button>
         </div>
       )}
@@ -366,11 +484,8 @@ export function ChasePipelineTable({ studies }: { studies: Study[] }) {
     return () => window.removeEventListener(APPLICATION_CHANGE_EVENT, onChange);
   }, []);
 
-  function handleCycle(row: Row) {
-    const next: Application = {
-      ...row.application,
-      status: cycleLifecycleStatus(row.application.status),
-    };
+  function patchApplication(row: Row, patch: Partial<Application>) {
+    const next: Application = { ...row.application, ...patch };
     upsertApplication(row.study.id, next);
     setApplications((prev) => ({ ...prev, [row.study.id]: next }));
   }
@@ -468,10 +583,21 @@ export function ChasePipelineTable({ studies }: { studies: Study[] }) {
                         <BusinessHoursBadge tz={row.application.contact.tz} />
                       </TableCell>
                       <TableCell>
-                        <ChaseStatusPill
-                          status={row.application.status}
-                          onCycle={() => handleCycle(row)}
-                        />
+                        <div className="flex flex-col items-start gap-1">
+                          <ChaseStatusPill
+                            status={row.application.status}
+                            onStep={(direction) =>
+                              patchApplication(row, {
+                                status: stepLifecycleStatus(row.application.status, direction),
+                              })
+                            }
+                            onSelect={(status) => patchApplication(row, { status })}
+                          />
+                          <ChaseStatePill
+                            state={row.application.chase_state}
+                            onSelect={(chase_state) => patchApplication(row, { chase_state })}
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                     {isOpen && (

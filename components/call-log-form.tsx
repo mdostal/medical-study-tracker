@@ -66,11 +66,14 @@ const EMPTY_INPUTS: Omit<CallLogFormInputs, "date"> = {
 export function CallLogForm({
   studyId,
   studyLabel,
+  kind = "call",
   onSaved,
   onClose,
 }: {
   studyId: string;
   studyLabel?: string;
+  /** "update" for form/syndicated-apply channels, where there was never a phone call to log. */
+  kind?: "call" | "update";
   onSaved?: (application: Application) => void;
   onClose?: () => void;
 }) {
@@ -134,7 +137,7 @@ export function CallLogForm({
     <div className="space-y-3 rounded-lg border border-dashed bg-muted/30 p-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-mono text-[0.68rem] font-semibold uppercase tracking-wide text-muted-foreground">
-          Log a call -- {studyId}
+          {kind === "call" ? "Log a call" : "Log an update"} -- {studyId}
         </h3>
         {onClose && (
           <Button variant="ghost" size="xs" onClick={onClose} className="font-mono text-[0.62rem]">
@@ -163,7 +166,7 @@ export function CallLogForm({
           <Input
             value={inputs.who}
             onChange={(e) => set("who", e.target.value)}
-            placeholder="e.g. clinic coordinator"
+            placeholder={kind === "call" ? "e.g. clinic coordinator" : "e.g. myself, via the form"}
             className="font-mono text-[0.7rem]"
           />
         </Field>
@@ -171,7 +174,11 @@ export function CallLogForm({
           <Input
             value={inputs.summary}
             onChange={(e) => set("summary", e.target.value)}
-            placeholder="e.g. confirmed screening slot, went over the 5 questions"
+            placeholder={
+              kind === "call"
+                ? "e.g. confirmed screening slot, went over the 5 questions"
+                : "e.g. submitted the registration form, no confirmation email yet"
+            }
             className="font-mono text-[0.7rem]"
           />
         </Field>
@@ -266,14 +273,14 @@ export function CallLogForm({
       </div>
 
       <Button size="sm" onClick={save} disabled={!canSave} className="font-mono text-[0.68rem]">
-        save call log entry
+        {kind === "call" ? "save call log entry" : "save update"}
       </Button>
 
       {saved && (
         <div className="space-y-2 rounded border bg-background p-2">
           <p className="text-[0.7rem] text-emerald-700 dark:text-emerald-400">
-            Saved to your private call log for {studyId} -- your own ranking above now uses these
-            confirmed values.
+            Saved to your private {kind === "call" ? "call log" : "update log"} for {studyId} --
+            your own ranking above now uses these confirmed values.
           </p>
           {shareable.length > 0 && (
             <div className="space-y-1.5">
