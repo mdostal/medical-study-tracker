@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 /**
  * Sitewide top nav. Keeps the homepage itself focused purely on the ranked
@@ -31,6 +32,7 @@ export function SiteNav() {
         <Link href="/disclaimer" className="hover:text-foreground">
           Disclaimer
         </Link>
+        <ThemeToggle />
       </div>
     </nav>
   );
