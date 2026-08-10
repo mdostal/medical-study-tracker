@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Study } from "@/lib/types";
 import { loadUserStudies } from "@/lib/profile-store";
 import { ChasePipelineTable } from "@/components/chase-pipeline-table";
+import { DoTodayQueue } from "@/components/do-today-queue";
 import studiesSeed from "@/data/studies.seed.json";
 
 // docs/APPLICATION-TRACKING.md "UI" section: "Lives alongside the ranked
@@ -44,7 +45,8 @@ export default function ChasePage() {
         </p>
       </header>
 
-      <div className="mx-auto max-w-[1100px]">
+      <div className="mx-auto max-w-[1100px] space-y-10">
+        <DoTodayQueue studies={allStudies} />
         <ChasePipelineTable studies={allStudies} />
       </div>
     </div>
