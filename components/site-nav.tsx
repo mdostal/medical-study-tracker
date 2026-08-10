@@ -20,6 +20,9 @@ export function SiteNav() {
         <Link href="/" className="hover:text-foreground">
           Tracker
         </Link>
+        <Link href="/chase" className="hover:text-foreground">
+          Chase
+        </Link>
         <Link href="/about" className="hover:text-foreground">
           About
         </Link>
