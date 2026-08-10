@@ -27,7 +27,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <Label className="font-mono text-[0.58rem] uppercase tracking-wide text-muted-foreground">
         {label}
       </Label>
@@ -184,7 +184,7 @@ export function ProfilePanel({
                 onValueChange={(next) => onBackupCareHubsChange?.(next)}
                 variant="outline"
                 size="sm"
-                className="max-w-md flex-wrap"
+                className="w-full max-w-md flex-wrap"
               >
                 {availableBackupCareHubs.map((h) => (
                   <ToggleGroupItem
@@ -261,6 +261,7 @@ export function ProfilePanel({
           }}
           variant="outline"
           size="sm"
+          className="flex-wrap"
         >
           {SORT_OPTIONS.map((opt) => (
             <ToggleGroupItem

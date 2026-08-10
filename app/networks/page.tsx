@@ -119,7 +119,7 @@ function PhoneLink({ value }: { value: string | undefined }) {
 
 function NetworkCard({ network }: { network: Network }) {
   return (
-    <div className="space-y-3 rounded-xl border bg-card p-4">
+    <div className="min-w-0 space-y-3 rounded-xl border bg-card p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <h3 className="font-semibold">
@@ -145,12 +145,12 @@ function NetworkCard({ network }: { network: Network }) {
         </div>
       </div>
 
-      <div className="grid gap-x-6 gap-y-1 font-mono text-[0.72rem] sm:grid-cols-2">
-        <div>
+      <div className="grid min-w-0 gap-x-6 gap-y-1 font-mono text-[0.72rem] sm:grid-cols-2">
+        <div className="min-w-0">
           <span className="text-muted-foreground">portal </span>
           <PortalLink value={network.portal} />
         </div>
-        <div>
+        <div className="min-w-0">
           <span className="text-muted-foreground">phone </span>
           <PhoneLink value={network.phone} />
         </div>

@@ -260,6 +260,7 @@ export function AddStudyForm({ onAdd }: { onAdd: (study: Study) => void }) {
                 }}
                 variant="outline"
                 size="sm"
+                className="flex-wrap"
               >
                 <ToggleGroupItem value="USD" className="font-mono text-[0.68rem]">
                   USD
@@ -330,6 +331,7 @@ export function AddStudyForm({ onAdd }: { onAdd: (study: Study) => void }) {
                 }}
                 variant="outline"
                 size="sm"
+                className="flex-wrap"
               >
                 <ToggleGroupItem value="M/F" className="font-mono text-[0.68rem]">
                   M/F
@@ -351,6 +353,7 @@ export function AddStudyForm({ onAdd }: { onAdd: (study: Study) => void }) {
                 }}
                 variant="outline"
                 size="sm"
+                className="flex-wrap"
               >
                 <ToggleGroupItem value="non" className="font-mono text-[0.68rem]">
                   non
