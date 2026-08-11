@@ -394,7 +394,7 @@ export interface Profile {
   bmi: number;
   weight_lb: number;
   sex: "male" | "female";
-  age?: number;            // if known, used against age_max caps
+  age?: number;            // if known, checked against a study's age_min/age_max range
   smoker?: boolean;        // if known, checked against Study.smoker; undefined never blocks
   conditions?: string[];   // e.g. high cholesterol -> satisfies high_cholesterol_required
 }

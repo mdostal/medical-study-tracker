@@ -49,6 +49,11 @@ export function isEligible(s: Study, p: Profile): { ok: boolean; reason?: string
   if (s.bmi_min != null && p.bmi < s.bmi_min) return { ok: false, reason: `BMI < ${s.bmi_min}` };
   if (s.bmi_max != null && p.bmi > s.bmi_max) return { ok: false, reason: `BMI > ${s.bmi_max}` };
   if (s.min_weight_lb != null && p.weight_lb < s.min_weight_lb) return { ok: false, reason: `weight < ${s.min_weight_lb}` };
+  // Real gap found via a live-client QA pass (a 25/32-year-old profile
+  // showed as fully eligible for a real senior-only 61-80 study): only the
+  // age ceiling was ever checked here, never the floor, even though
+  // age_min is a required Study field.
+  if (p.age != null && p.age < s.age_min) return { ok: false, reason: `age < ${s.age_min}` };
   if (p.age != null && p.age > s.age_max) return { ok: false, reason: `age > ${s.age_max}` };
   if (p.smoker != null) {
     if (s.smoker === "non" && p.smoker) return { ok: false, reason: "non-smokers only" };

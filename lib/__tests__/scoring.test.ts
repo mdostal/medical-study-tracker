@@ -53,6 +53,22 @@ describe("isEligible", () => {
     expect(result.reason).toMatch(/BMI/);
   });
 
+  // Found via a live-client QA pass: a senior-only study (age_min 61) showed
+  // as eligible for a 25/32-year-old, because only age_max was ever checked.
+  it("rejects a profile below the study's age floor", () => {
+    const seniorOnly: Study = { ...study, age_min: 61, age_max: 80 };
+    expect(isEligible(seniorOnly, { ...profile, age: 25 })).toEqual({
+      ok: false,
+      reason: "age < 61",
+    });
+    expect(isEligible(seniorOnly, { ...profile, age: 65 }).ok).toBe(true);
+  });
+
+  it("age gating: undefined profile.age never blocks on either bound", () => {
+    const ageRestricted: Study = { ...study, age_min: 61, age_max: 80 };
+    expect(isEligible(ageRestricted, { ...profile, age: undefined }).ok).toBe(true);
+  });
+
   it("rejects a female-only study for a male profile", () => {
     const femaleOnly: Study = { ...study, sex: "female" };
     const result = isEligible(femaleOnly, profile);
