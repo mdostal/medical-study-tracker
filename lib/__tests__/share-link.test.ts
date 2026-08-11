@@ -9,9 +9,16 @@ import {
   encodeShareState,
   SHARE_PARAM,
 } from "../share-link";
-import { DEFAULT_ASSUMPTIONS, DEFAULT_SORT_KEY, type Application, type PersistedState } from "../types";
+import {
+  DEFAULT_ASSUMPTIONS,
+  DEFAULT_PROFILE,
+  DEFAULT_SORT_KEY,
+  type Application,
+  type PersistedState,
+} from "../types";
 
 const CUSTOM_STATE: PersistedState = {
+  profile: { ...DEFAULT_PROFILE, bmi: 29, weight_lb: 210, sex: "female", smoker: true },
   assumptions: {
     ...DEFAULT_ASSUMPTIONS,
     home_base: { city: "Omaha, NE", lat: 41.2565, lng: -95.9345 },
@@ -57,24 +64,44 @@ describe("share-link encode/decode round-trip", () => {
 describe("share-link malformed input fallback", () => {
   it("falls back to defaults when the share param is entirely missing", () => {
     const decoded = decodeShareState(new URLSearchParams());
-    expect(decoded).toEqual({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY, backup_care_hubs: [] });
+    expect(decoded).toEqual({
+      profile: DEFAULT_PROFILE,
+      assumptions: DEFAULT_ASSUMPTIONS,
+      sortKey: DEFAULT_SORT_KEY,
+      backup_care_hubs: [],
+    });
   });
 
   it("falls back to defaults for garbage (non-base64) param value", () => {
     const decoded = decodeShareState(new URLSearchParams({ [SHARE_PARAM]: "!!!not-base64!!!" }));
-    expect(decoded).toEqual({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY, backup_care_hubs: [] });
+    expect(decoded).toEqual({
+      profile: DEFAULT_PROFILE,
+      assumptions: DEFAULT_ASSUMPTIONS,
+      sortKey: DEFAULT_SORT_KEY,
+      backup_care_hubs: [],
+    });
   });
 
   it("falls back to defaults for validly-encoded but non-JSON content", () => {
     const notJson = Buffer.from("this is not json").toString("base64url");
     const decoded = decodeShareState(new URLSearchParams({ [SHARE_PARAM]: notJson }));
-    expect(decoded).toEqual({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY, backup_care_hubs: [] });
+    expect(decoded).toEqual({
+      profile: DEFAULT_PROFILE,
+      assumptions: DEFAULT_ASSUMPTIONS,
+      sortKey: DEFAULT_SORT_KEY,
+      backup_care_hubs: [],
+    });
   });
 
   it("falls back to defaults for valid JSON of the wrong shape (e.g. an array)", () => {
     const wrongShape = Buffer.from(JSON.stringify([1, 2, 3])).toString("base64url");
     const decoded = decodeShareState(new URLSearchParams({ [SHARE_PARAM]: wrongShape }));
-    expect(decoded).toEqual({ assumptions: DEFAULT_ASSUMPTIONS, sortKey: DEFAULT_SORT_KEY, backup_care_hubs: [] });
+    expect(decoded).toEqual({
+      profile: DEFAULT_PROFILE,
+      assumptions: DEFAULT_ASSUMPTIONS,
+      sortKey: DEFAULT_SORT_KEY,
+      backup_care_hubs: [],
+    });
   });
 
   it("never throws on decode regardless of input", () => {

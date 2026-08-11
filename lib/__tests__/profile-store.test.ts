@@ -8,7 +8,13 @@ import {
   savePersistedState,
   saveUserStudies,
 } from "../profile-store";
-import { DEFAULT_ASSUMPTIONS, DEFAULT_SORT_KEY, type PersistedState, type Study } from "../types";
+import {
+  DEFAULT_ASSUMPTIONS,
+  DEFAULT_PROFILE,
+  DEFAULT_SORT_KEY,
+  type PersistedState,
+  type Study,
+} from "../types";
 
 // In-memory Storage stub — avoids pulling in jsdom just for localStorage.
 // Stubbed onto the global `localStorage` identifier (not `window`), matching
@@ -46,6 +52,7 @@ describe("profile-store (localStorage adapter)", () => {
 
   it("reload-persistence: save then load round-trips the exact state", () => {
     const state: PersistedState = {
+      profile: { ...DEFAULT_PROFILE, bmi: 29, weight_lb: 210 },
       assumptions: {
         ...DEFAULT_ASSUMPTIONS,
         home_base: { city: "Omaha, NE", lat: 41.2565, lng: -95.9345 },
@@ -60,6 +67,7 @@ describe("profile-store (localStorage adapter)", () => {
 
   it("clearPersistedState removes the saved state", () => {
     savePersistedState({
+      profile: DEFAULT_PROFILE,
       assumptions: DEFAULT_ASSUMPTIONS,
       sortKey: DEFAULT_SORT_KEY,
       backup_care_hubs: [],
@@ -84,6 +92,7 @@ describe("profile-store (localStorage adapter)", () => {
       JSON.stringify({ assumptions: { ...DEFAULT_ASSUMPTIONS, home_base: 12345 }, sortKey: "score" }),
     );
     expect(loadPersistedState()).toEqual({
+      profile: DEFAULT_PROFILE,
       assumptions: DEFAULT_ASSUMPTIONS,
       sortKey: "score",
       backup_care_hubs: [],
@@ -199,6 +208,7 @@ describe("profile-store without localStorage available", () => {
     expect(loadPersistedState()).toBeNull();
     expect(() =>
       savePersistedState({
+        profile: DEFAULT_PROFILE,
         assumptions: DEFAULT_ASSUMPTIONS,
         sortKey: DEFAULT_SORT_KEY,
         backup_care_hubs: [],

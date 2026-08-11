@@ -36,13 +36,31 @@ export function isEligible(s: Study, p: Profile): { ok: boolean; reason?: string
   if (s.eligible === false) return { ok: false, reason: s.exclude_reason };
   if (s.status === "closed") return { ok: false, reason: "closed" };
   if (s.sex === "female" && p.sex === "male") return { ok: false, reason: "female-only" };
-  if (s.special_pop === "overweight_obese") return { ok: false, reason: "requires BMI 27+" };
+  // "asian_descent_required" (ethnobridging) has no corresponding Profile
+  // field -- this app never asks a visitor's ethnicity -- so it stays an
+  // unconditional exclude, unlike overweight_obese/high_cholesterol_required
+  // just below, which DO have a real Profile field to check against.
   if (s.special_pop === "asian_descent_required") return { ok: false, reason: "ethnobridging" };
+  // "overweight_obese" used to unconditionally block regardless of the
+  // visitor's actual BMI -- every real seed study tagged overweight_obese
+  // already carries a real bmi_min (data/studies.seed.json), so the
+  // bmi_min/bmi_max checks right below are the real, per-study, per-visitor
+  // gate; special_pop is descriptive metadata here, not its own gate.
   if (s.bmi_min != null && p.bmi < s.bmi_min) return { ok: false, reason: `BMI < ${s.bmi_min}` };
   if (s.bmi_max != null && p.bmi > s.bmi_max) return { ok: false, reason: `BMI > ${s.bmi_max}` };
   if (s.min_weight_lb != null && p.weight_lb < s.min_weight_lb) return { ok: false, reason: `weight < ${s.min_weight_lb}` };
   if (p.age != null && p.age > s.age_max) return { ok: false, reason: `age > ${s.age_max}` };
-  if (s.special_pop === "high_cholesterol_required") return { ok: false, reason: "requires documented high cholesterol (he doesn't have it)" };
+  if (p.smoker != null) {
+    if (s.smoker === "non" && p.smoker) return { ok: false, reason: "non-smokers only" };
+    if (s.smoker === "smoker-only" && !p.smoker) return { ok: false, reason: "smokers only" };
+  }
+  // Profile.conditions exists specifically for this (see its own doc
+  // comment in lib/types.ts) -- a visitor who has stated they have
+  // documented high cholesterol satisfies this gate; anyone else is
+  // honestly blocked, not silently assumed either way.
+  if (s.special_pop === "high_cholesterol_required" && !p.conditions?.includes("high_cholesterol")) {
+    return { ok: false, reason: "requires documented high cholesterol" };
+  }
   return { ok: true };
 }
 

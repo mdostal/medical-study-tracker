@@ -59,6 +59,41 @@ describe("isEligible", () => {
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("female-only");
   });
+
+  // story: editable-profile -- eligibility used to be computed against a
+  // single hardcoded example profile for every visitor, so an
+  // overweight_obese-gated study always showed blocked regardless of the
+  // real visitor's BMI. Proves a real higher-BMI profile is now accepted.
+  it("accepts an overweight_obese-gated study for a profile with a qualifying BMI", () => {
+    const obesityStudy: Study = { ...study, bmi_min: 27, bmi_max: 40, special_pop: "overweight_obese" };
+    expect(isEligible(obesityStudy, { ...profile, bmi: 15 }).ok).toBe(false);
+    expect(isEligible(obesityStudy, { ...profile, bmi: 32 }).ok).toBe(true);
+  });
+
+  it("smoker gating: undefined profile.smoker never blocks", () => {
+    expect(isEligible(study, profile).ok).toBe(true);
+    const smokerOnly: Study = { ...study, smoker: "smoker-only" };
+    expect(isEligible(smokerOnly, profile).ok).toBe(true);
+  });
+
+  it("smoker gating: rejects a smoker for a non-smoker-only study", () => {
+    const result = isEligible(study, { ...profile, smoker: true });
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("non-smokers only");
+  });
+
+  it("smoker gating: rejects a non-smoker for a smoker-only study", () => {
+    const smokerOnly: Study = { ...study, smoker: "smoker-only" };
+    const result = isEligible(smokerOnly, { ...profile, smoker: false });
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("smokers only");
+  });
+
+  it("smoker gating: accepts any smoker status for a smoker:any study", () => {
+    const anySmoker: Study = { ...study, smoker: "any" };
+    expect(isEligible(anySmoker, { ...profile, smoker: true }).ok).toBe(true);
+    expect(isEligible(anySmoker, { ...profile, smoker: false }).ok).toBe(true);
+  });
 });
 
 describe("scoreOne", () => {

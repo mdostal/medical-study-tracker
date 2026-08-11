@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_ASSUMPTIONS,
+  DEFAULT_PROFILE,
   DEFAULT_SORT_KEY,
   sanitizePersistedState,
 } from "../types";
@@ -12,21 +13,25 @@ import {
 describe("sanitizePersistedState", () => {
   it("returns full defaults for undefined/null/garbage input", () => {
     expect(sanitizePersistedState(undefined)).toEqual({
+      profile: DEFAULT_PROFILE,
       assumptions: DEFAULT_ASSUMPTIONS,
       sortKey: DEFAULT_SORT_KEY,
       backup_care_hubs: [],
     });
     expect(sanitizePersistedState(null)).toEqual({
+      profile: DEFAULT_PROFILE,
       assumptions: DEFAULT_ASSUMPTIONS,
       sortKey: DEFAULT_SORT_KEY,
       backup_care_hubs: [],
     });
     expect(sanitizePersistedState("not an object")).toEqual({
+      profile: DEFAULT_PROFILE,
       assumptions: DEFAULT_ASSUMPTIONS,
       sortKey: DEFAULT_SORT_KEY,
       backup_care_hubs: [],
     });
     expect(sanitizePersistedState(42)).toEqual({
+      profile: DEFAULT_PROFILE,
       assumptions: DEFAULT_ASSUMPTIONS,
       sortKey: DEFAULT_SORT_KEY,
       backup_care_hubs: [],
@@ -35,6 +40,7 @@ describe("sanitizePersistedState", () => {
 
   it("round-trips a fully valid state unchanged", () => {
     const valid = {
+      profile: { ...DEFAULT_PROFILE, bmi: 29, weight_lb: 210, sex: "female" as const, smoker: true },
       assumptions: {
         ...DEFAULT_ASSUMPTIONS,
         home_base: { city: "Omaha, NE", lat: 41.2565, lng: -95.9345 },
@@ -46,6 +52,44 @@ describe("sanitizePersistedState", () => {
       backup_care_hubs: ["AUS", "MSP"],
     };
     expect(sanitizePersistedState(valid)).toEqual(valid);
+  });
+
+  // story: editable-profile
+  describe("profile", () => {
+    it("defaults to DEFAULT_PROFILE when missing", () => {
+      expect(sanitizePersistedState({}).profile).toEqual(DEFAULT_PROFILE);
+    });
+
+    it("keeps a valid profile as-is", () => {
+      const result = sanitizePersistedState({
+        profile: { bmi: 31, weight_lb: 240, sex: "female", age: 45, smoker: true, conditions: ["high_cholesterol"] },
+      });
+      expect(result.profile).toEqual({
+        bmi: 31,
+        weight_lb: 240,
+        sex: "female",
+        age: 45,
+        smoker: true,
+        conditions: ["high_cholesterol"],
+      });
+    });
+
+    it("defaults individual malformed profile fields without discarding the rest", () => {
+      const result = sanitizePersistedState({
+        profile: { bmi: "not a number", weight_lb: 200, sex: "nonbinary", smoker: "yes" },
+      });
+      expect(result.profile.bmi).toBe(DEFAULT_PROFILE.bmi);
+      expect(result.profile.weight_lb).toBe(200);
+      expect(result.profile.sex).toBe(DEFAULT_PROFILE.sex);
+      expect(result.profile.smoker).toBe(DEFAULT_PROFILE.smoker);
+    });
+
+    it("never throws on garbage profile input", () => {
+      expect(() => sanitizePersistedState({ profile: "garbage" })).not.toThrow();
+      expect(() => sanitizePersistedState({ profile: null })).not.toThrow();
+      expect(() => sanitizePersistedState({ profile: 42 })).not.toThrow();
+      expect(sanitizePersistedState({ profile: "garbage" }).profile).toEqual(DEFAULT_PROFILE);
+    });
   });
 
   // story: generalize-profile-inputs — any city is now valid, including a

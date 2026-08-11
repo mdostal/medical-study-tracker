@@ -395,8 +395,23 @@ export interface Profile {
   weight_lb: number;
   sex: "male" | "female";
   age?: number;            // if known, used against age_max caps
+  smoker?: boolean;        // if known, checked against Study.smoker; undefined never blocks
   conditions?: string[];   // e.g. high cholesterol -> satisfies high_cholesterol_required
 }
+
+// The example profile every anonymous visitor sees until they edit their own
+// (components/profile-panel.tsx) — a generic placeholder, never a real
+// person's data. Deliberately exported as the single source of truth so
+// app/page.tsx's "example profile" banner and PersistedState's default below
+// can never drift from each other.
+export const DEFAULT_PROFILE: Profile = {
+  bmi: 22,
+  weight_lb: 170,
+  sex: "male",
+  age: 32,
+  smoker: false,
+  conditions: [],
+};
 
 // A named point (city center, approximately) used to compute a real
 // drive-vs-fly distance in lib/scoring.ts. Not tied to any particular city —
@@ -535,6 +550,14 @@ const SORT_KEYS: readonly SortKey[] = [
 export const DEFAULT_SORT_KEY: SortKey = "score";
 
 export interface PersistedState {
+  // This visitor's own medical/eligibility inputs (BMI, weight, sex, age,
+  // smoker) -- previously hardcoded to DEFAULT_PROFILE everywhere and never
+  // editable or persisted, which meant eligibility (bmi_min/max, sex-only,
+  // smoker-only studies) was computed against the SAME fictional example
+  // profile for every visitor regardless of their real BMI/sex/smoker status
+  // (story: editable-profile). Defaults to DEFAULT_PROFILE, same
+  // restore-from-localStorage-or-share-link path as Assumptions below.
+  profile: Profile;
   assumptions: Assumptions;
   sortKey: SortKey;
   // story: configurable-backup-care-coverage — hub codes (data/friend-childcare-map.json's
@@ -551,6 +574,7 @@ export interface PersistedState {
 }
 
 export const DEFAULT_PERSISTED_STATE: PersistedState = {
+  profile: DEFAULT_PROFILE,
   assumptions: DEFAULT_ASSUMPTIONS,
   sortKey: DEFAULT_SORT_KEY,
   backup_care_hubs: [],
@@ -577,6 +601,28 @@ function sanitizeHomeBase(v: unknown): HomeBase {
   if (v === null || typeof v === "string") return v;
   if (isGeoPoint(v)) return { city: v.city, lat: v.lat, lng: v.lng };
   return DEFAULT_ASSUMPTIONS.home_base;
+}
+
+function isSex(value: unknown): value is Profile["sex"] {
+  return value === "male" || value === "female";
+}
+
+/** Same never-throw, field-by-field-fallback discipline as sanitizeAssumptions below. */
+function sanitizeProfile(input: unknown): Profile {
+  const src = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  const num = (v: unknown, fallback: number) =>
+    typeof v === "number" && Number.isFinite(v) ? v : fallback;
+
+  return {
+    bmi: num(src.bmi, DEFAULT_PROFILE.bmi),
+    weight_lb: num(src.weight_lb, DEFAULT_PROFILE.weight_lb),
+    sex: isSex(src.sex) ? src.sex : DEFAULT_PROFILE.sex,
+    age: num(src.age, DEFAULT_PROFILE.age as number),
+    smoker: typeof src.smoker === "boolean" ? src.smoker : DEFAULT_PROFILE.smoker,
+    conditions: Array.isArray(src.conditions)
+      ? src.conditions.filter((c): c is string => typeof c === "string")
+      : [...(DEFAULT_PROFILE.conditions ?? [])],
+  };
 }
 
 function sanitizeAssumptions(input: unknown): Assumptions {
@@ -631,6 +677,7 @@ function sanitizeBackupCareHubs(v: unknown): string[] {
 export function sanitizePersistedState(input: unknown): PersistedState {
   const src = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
   return {
+    profile: sanitizeProfile(src.profile),
     assumptions: sanitizeAssumptions(src.assumptions),
     sortKey: isSortKey(src.sortKey) ? src.sortKey : DEFAULT_SORT_KEY,
     backup_care_hubs: sanitizeBackupCareHubs(src.backup_care_hubs),
