@@ -406,6 +406,13 @@ export interface Profile {
   bmi: number;             // derived -- see computeBmi; never set independently of height_in/weight_lb
   height_in: number;       // total inches; the UI splits this into feet+inches for entry
   weight_lb: number;
+  // How many pounds up or down the visitor says they'd actually be willing
+  // to move for a study (e.g. "I'd gain 15lb for the right payout"). 0 by
+  // default -- eligibility then behaves exactly as if this field didn't
+  // exist. > 0 widens bmi_min/bmi_max/min_weight_lb gates in lib/scoring.ts
+  // to "reachable within [weight_lb - swing, weight_lb + swing]", not just
+  // "true today" (see isEligible's via_swing handling + docs/SCORING.md).
+  weight_swing_lb: number;
   sex: "male" | "female";
   age?: number;            // if known, checked against a study's age_min/age_max range
   smoker?: boolean;        // if known, checked against Study.smoker; undefined never blocks
@@ -421,6 +428,7 @@ export const DEFAULT_PROFILE: Profile = {
   height_in: 70, // 5'10"
   weight_lb: 170,
   bmi: computeBmi(170, 70),
+  weight_swing_lb: 0,
   sex: "male",
   age: 32,
   smoker: false,
@@ -512,6 +520,13 @@ export interface ScoredStudy extends Study {
   feasibility: Feasibility;
   score: number;           // 0-100 composite (0 if blocked)
   flags: string[];         // e.g. "confirm BMI", "age cap 40", "nights unknown"
+  // true only when this study is eligible SOLELY because Profile.weight_swing_lb
+  // widened a bmi_min/bmi_max/min_weight_lb gate -- the visitor's current
+  // numbers alone would NOT clear it. Always false when weight_swing_lb is 0
+  // (the default), so this is a no-op for anyone who never touches that
+  // field. components/ranked-table.tsx colors these rows/badges orange vs
+  // green for a current-profile fit.
+  via_swing: boolean;
 }
 
 export const DEFAULT_ASSUMPTIONS: Assumptions = {
@@ -637,11 +652,15 @@ function sanitizeProfile(input: unknown): Profile {
 
   const height_in = num(src.height_in, DEFAULT_PROFILE.height_in);
   const weight_lb = num(src.weight_lb, DEFAULT_PROFILE.weight_lb);
+  // Negative would mean "narrower than my actual weight", which isn't a
+  // swing at all -- clamp at 0 rather than let it invert the range.
+  const weight_swing_lb = Math.max(0, num(src.weight_swing_lb, DEFAULT_PROFILE.weight_swing_lb));
 
   return {
     height_in,
     weight_lb,
     bmi: computeBmi(weight_lb, height_in),
+    weight_swing_lb,
     sex: isSex(src.sex) ? src.sex : DEFAULT_PROFILE.sex,
     age: num(src.age, DEFAULT_PROFILE.age as number),
     smoker: typeof src.smoker === "boolean" ? src.smoker : DEFAULT_PROFILE.smoker,

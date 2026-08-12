@@ -76,6 +76,7 @@ describe("sanitizePersistedState", () => {
         bmi: computeBmi(240, 65),
         height_in: 65,
         weight_lb: 240,
+        weight_swing_lb: 0,
         sex: "female",
         age: 45,
         smoker: true,

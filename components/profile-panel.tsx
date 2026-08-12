@@ -16,6 +16,7 @@ export function isDefaultProfile(p: Profile): boolean {
   return (
     p.height_in === DEFAULT_PROFILE.height_in &&
     p.weight_lb === DEFAULT_PROFILE.weight_lb &&
+    p.weight_swing_lb === DEFAULT_PROFILE.weight_swing_lb &&
     p.sex === DEFAULT_PROFILE.sex &&
     p.age === DEFAULT_PROFILE.age &&
     p.smoker === DEFAULT_PROFILE.smoker &&
@@ -205,6 +206,27 @@ export function ProfilePanel({
             value={profile.weight_lb}
             onChange={(e) => setHeightWeight({ weight_lb: Number(e.target.value) || 0 })}
             className="w-24 font-mono tabular-nums"
+          />
+        </Field>
+
+        {/* Optional: "how many lb would you actually gain or lose for the
+            right study" -- widens bmi_min/bmi_max/min_weight_lb gates in
+            lib/scoring.ts's isEligible to anything reachable within
+            [weight_lb - swing, weight_lb + swing], not just your current
+            number. 0 by default -- eligibility is byte-for-byte identical to
+            not having this field at all until it's touched. Studies that
+            only qualify via the swing show an amber "within your ± swing"
+            badge below instead of the green "within your current BMI" one
+            (components/ranked-table.tsx). */}
+        <Field label="Willing to swing (± lb)">
+          <Input
+            type="number"
+            step={1}
+            min={0}
+            value={profile.weight_swing_lb}
+            onChange={(e) => setProfile("weight_swing_lb", Math.max(0, Number(e.target.value) || 0))}
+            placeholder="0"
+            className="w-20 font-mono tabular-nums"
           />
         </Field>
 

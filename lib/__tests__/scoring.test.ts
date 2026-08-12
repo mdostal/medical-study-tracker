@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isEligible, scoreAll, scoreOne } from "../scoring";
 import type { Assumptions, FriendMap, Profile, Study } from "../types";
-import { DEFAULT_ASSUMPTIONS } from "../types";
+import { computeBmi, DEFAULT_ASSUMPTIONS } from "../types";
 
 // Smoke tests for the framework-free engine — these also double as the
 // "npm test" proof for the scaffold story (scaffold-nextjs-app.yaml).
@@ -26,7 +26,7 @@ const study: Study = {
   special_pop: null,
 };
 
-const profile: Profile = { bmi: 24, height_in: 70, weight_lb: 180, sex: "male", age: 32 };
+const profile: Profile = { bmi: 24, height_in: 70, weight_lb: 180, weight_swing_lb: 0, sex: "male", age: 32 };
 
 // San Antonio, TX — a real hub with real coordinates. Used across the
 // generalize-profile-inputs tests below to prove drivable() computes an
@@ -48,7 +48,11 @@ describe("isEligible", () => {
   });
 
   it("rejects a profile below the study's BMI floor", () => {
-    const result = isEligible(study, { ...profile, bmi: 15 });
+    // bmi is derived from height_in/weight_lb (never set independently in
+    // real usage) -- a real low-BMI profile needs a real low weight, not
+    // just a forged mismatched bmi field.
+    const lowBmiProfile = { ...profile, weight_lb: 90, bmi: computeBmi(90, profile.height_in) };
+    const result = isEligible(study, lowBmiProfile);
     expect(result.ok).toBe(false);
     expect(result.reason).toMatch(/BMI/);
   });
@@ -109,6 +113,71 @@ describe("isEligible", () => {
     const anySmoker: Study = { ...study, smoker: "any" };
     expect(isEligible(anySmoker, { ...profile, smoker: true }).ok).toBe(true);
     expect(isEligible(anySmoker, { ...profile, smoker: false }).ok).toBe(true);
+  });
+
+  // "willing to swing (+/- lb)" -- widens bmi_min/bmi_max/min_weight_lb
+  // gates to anything reachable within [weight_lb - swing, weight_lb +
+  // swing], not just the visitor's number today. via_swing marks a study
+  // that ONLY passes because of the swing, so the UI can color it
+  // differently (components/ranked-table.tsx's FitBadge/row highlight).
+  describe("weight_swing_lb", () => {
+    it("at the default 0, behaves byte-for-byte identically to no swing at all", () => {
+      const tooHeavy = { ...profile, weight_lb: 230, bmi: computeBmi(230, profile.height_in) };
+      const result = isEligible(study, tooHeavy); // study's bmi_max is 30; 230lb @ 70in ~= 33.0
+      expect(result.ok).toBe(false);
+      expect(result.reason).toBe("BMI > 30");
+      expect(result.via_swing).toBeUndefined();
+    });
+
+    it("accepts, via_swing=true, a study whose bmi_max only a lower swung weight would clear", () => {
+      const heavy = { ...profile, weight_lb: 230, bmi: computeBmi(230, profile.height_in), weight_swing_lb: 40 };
+      const result = isEligible(study, heavy); // 230-40=190lb @ 70in ~= 27.3, inside [18.5, 30]
+      expect(result.ok).toBe(true);
+      expect(result.via_swing).toBe(true);
+    });
+
+    it("accepts, via_swing=true, a study whose bmi_min only a higher swung weight would clear", () => {
+      const light = { ...profile, weight_lb: 100, bmi: computeBmi(100, profile.height_in), weight_swing_lb: 40 };
+      const result = isEligible(study, light); // 100+40=140lb @ 70in ~= 20.1, inside [18.5, 30]
+      expect(result.ok).toBe(true);
+      expect(result.via_swing).toBe(true);
+    });
+
+    it("stays blocked, with the original reason, when the swing isn't enough to reach the gate", () => {
+      const light = { ...profile, weight_lb: 100, bmi: computeBmi(100, profile.height_in), weight_swing_lb: 5 };
+      const result = isEligible(study, light); // 100+5=105lb @ 70in ~= 15.1, still below 18.5
+      expect(result.ok).toBe(false);
+      expect(result.reason).toBe("BMI < 18.5");
+      expect(result.via_swing).toBeUndefined();
+    });
+
+    it("does NOT mark via_swing when the current profile already clears the gate on its own", () => {
+      const swung = { ...profile, weight_swing_lb: 25 }; // profile already fits study with zero swing
+      const result = isEligible(study, swung);
+      expect(result.ok).toBe(true);
+      expect(result.via_swing).toBeUndefined();
+    });
+
+    it("also widens a min_weight_lb floor, the same way it widens bmi", () => {
+      // No bmi gate on this fixture -- isolates the min_weight_lb check so a
+      // low resulting BMI at 120lb doesn't block first for the wrong reason.
+      const gated: Study = { ...study, bmi_min: null, bmi_max: null, min_weight_lb: 150 };
+      const tooLight = { ...profile, weight_lb: 120, bmi: computeBmi(120, profile.height_in) };
+      expect(isEligible(gated, tooLight)).toEqual({ ok: false, reason: "weight < 150" });
+
+      const withSwing = { ...tooLight, weight_swing_lb: 40 }; // 120+40=160 >= 150
+      const swungResult = isEligible(gated, withSwing);
+      expect(swungResult.ok).toBe(true);
+      expect(swungResult.via_swing).toBe(true);
+
+      const notEnoughSwing = { ...tooLight, weight_swing_lb: 10 }; // 120+10=130 < 150
+      expect(isEligible(gated, notEnoughSwing)).toEqual({ ok: false, reason: "weight < 150" });
+    });
+
+    it("never goes negative even if weight_swing_lb is hand-set to a negative number", () => {
+      const negative = { ...profile, weight_swing_lb: -50 };
+      expect(isEligible(study, negative)).toEqual(isEligible(study, { ...profile, weight_swing_lb: 0 }));
+    });
   });
 });
 

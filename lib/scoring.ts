@@ -4,6 +4,7 @@
 import type {
   Study, Profile, FriendMap, Assumptions, ScoredStudy, Feasibility, HomeBase, GeoPoint,
 } from "./types";
+import { computeBmi } from "./types";
 
 const MAD_DEFAULT_NIGHTS = 21;   // fallback when a MAD study hides its night count
 const STAY_DEFAULT_NIGHTS = 8;   // fallback for a null-stay non-MAD study
@@ -32,7 +33,15 @@ function haversineMiles(a: GeoPoint, b: GeoPoint): number {
 }
 
 // ---- eligibility gate -------------------------------------------------------
-export function isEligible(s: Study, p: Profile): { ok: boolean; reason?: string } {
+//
+// `via_swing`: true when the ONLY reason this study passes is
+// Profile.weight_swing_lb widening the bmi_min/bmi_max/min_weight_lb gates
+// beyond what the visitor's current height/weight alone would clear. At the
+// default weight_swing_lb=0, [weightMin, weightMax] collapses to a single
+// point (the visitor's actual weight) and this function is byte-for-byte
+// equivalent to the pre-swing version -- every existing blocked reason and
+// its exact wording/order is unchanged when nobody touches the swing input.
+export function isEligible(s: Study, p: Profile): { ok: boolean; reason?: string; via_swing?: boolean } {
   if (s.eligible === false) return { ok: false, reason: s.exclude_reason };
   if (s.status === "closed") return { ok: false, reason: "closed" };
   if (s.sex === "female" && p.sex === "male") return { ok: false, reason: "female-only" };
@@ -41,14 +50,41 @@ export function isEligible(s: Study, p: Profile): { ok: boolean; reason?: string
   // unconditional exclude, unlike overweight_obese/high_cholesterol_required
   // just below, which DO have a real Profile field to check against.
   if (s.special_pop === "asian_descent_required") return { ok: false, reason: "ethnobridging" };
+
+  const swing = Math.max(0, p.weight_swing_lb || 0);
+  const weightMin = Math.max(0, p.weight_lb - swing);
+  const weightMax = p.weight_lb + swing;
+  // computeBmi is monotonically increasing in weight for a fixed height, so
+  // [bmiAtMin, bmiAtMax] is exactly the BMI range reachable within the swing.
+  const bmiAtMin = computeBmi(weightMin, p.height_in);
+  const bmiAtMax = computeBmi(weightMax, p.height_in);
+
+  let viaSwing = false;
+
   // "overweight_obese" used to unconditionally block regardless of the
   // visitor's actual BMI -- every real seed study tagged overweight_obese
   // already carries a real bmi_min (data/studies.seed.json), so the
-  // bmi_min/bmi_max checks right below are the real, per-study, per-visitor
-  // gate; special_pop is descriptive metadata here, not its own gate.
-  if (s.bmi_min != null && p.bmi < s.bmi_min) return { ok: false, reason: `BMI < ${s.bmi_min}` };
-  if (s.bmi_max != null && p.bmi > s.bmi_max) return { ok: false, reason: `BMI > ${s.bmi_max}` };
-  if (s.min_weight_lb != null && p.weight_lb < s.min_weight_lb) return { ok: false, reason: `weight < ${s.min_weight_lb}` };
+  // bmi_min/bmi_max checks below are the real, per-study, per-visitor gate;
+  // special_pop is descriptive metadata here, not its own gate.
+  if (s.bmi_min != null || s.bmi_max != null) {
+    const gateMin = s.bmi_min ?? -Infinity;
+    const gateMax = s.bmi_max ?? Infinity;
+    const currentOk = p.bmi >= gateMin && p.bmi <= gateMax;
+    const rangeOk = bmiAtMax >= gateMin && bmiAtMin <= gateMax; // range/gate overlap test
+    if (!currentOk && !rangeOk) {
+      if (s.bmi_min != null && p.bmi < s.bmi_min) return { ok: false, reason: `BMI < ${s.bmi_min}` };
+      if (s.bmi_max != null && p.bmi > s.bmi_max) return { ok: false, reason: `BMI > ${s.bmi_max}` };
+    }
+    if (!currentOk && rangeOk) viaSwing = true;
+  }
+
+  if (s.min_weight_lb != null) {
+    const currentOk = p.weight_lb >= s.min_weight_lb;
+    const rangeOk = weightMax >= s.min_weight_lb;
+    if (!currentOk && !rangeOk) return { ok: false, reason: `weight < ${s.min_weight_lb}` };
+    if (!currentOk && rangeOk) viaSwing = true;
+  }
+
   // Real gap found via a live-client QA pass (a 25/32-year-old profile
   // showed as fully eligible for a real senior-only 61-80 study): only the
   // age ceiling was ever checked here, never the floor, even though
@@ -66,7 +102,7 @@ export function isEligible(s: Study, p: Profile): { ok: boolean; reason?: string
   if (s.special_pop === "high_cholesterol_required" && !p.conditions?.includes("high_cholesterol")) {
     return { ok: false, reason: "requires documented high cholesterol" };
   }
-  return { ok: true };
+  return { ok: true, via_swing: viaSwing || undefined };
 }
 
 // ---- travel helpers ----------------------------------------------------------
@@ -183,13 +219,14 @@ export function scoreOne(
   if (s.bmi_min == null && s.bmi_max == null) flags.push("confirm BMI on call");
   if (s.age_max <= 40) flags.push(`age cap ${s.age_max} — verify`);
   if (s.currency === "CAD") flags.push("CAD → confirm passport/eligibility");
+  if (elig.via_swing) flags.push("outside your current BMI — within your ± swing");
 
   return {
     ...s,
     pay_usd, inpatient_nights, nights_estimated, trips, drivable: isDrive,
     travel_cost, backup_care_cost, backup_care_by, net_cash, settle_days, payout_unconfirmed,
     cash_velocity, downtime_days, downtime_rate, eff_per_night,
-    feasibility, score: 0, flags,
+    feasibility, score: 0, flags, via_swing: elig.via_swing ?? false,
   };
 }
 

@@ -41,6 +41,7 @@ function study(overrides: Partial<ScoredStudy> & { id: string }): ScoredStudy {
     feasibility: "EASY",
     score: 0,
     flags: [],
+    via_swing: false,
     ...overrides,
   };
 }

@@ -38,7 +38,7 @@ const BASE_STUDY: Study = {
   special_pop: null,
 };
 
-const PROFILE: Profile = { bmi: 24, height_in: 70, weight_lb: 180, sex: "male", age: 32 };
+const PROFILE: Profile = { bmi: 24, height_in: 70, weight_lb: 180, weight_swing_lb: 0, sex: "male", age: 32 };
 const ASSUMPTIONS: Assumptions = DEFAULT_ASSUMPTIONS;
 const FRIEND_MAP: FriendMap = { hubs: {}, backup_care_available: {} };
 

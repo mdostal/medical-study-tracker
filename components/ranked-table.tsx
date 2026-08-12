@@ -107,6 +107,27 @@ function FlagBadge({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Only rendered once the visitor has actually set Profile.weight_swing_lb >
+// 0 (see COLUMN_RENDER's flags entry below) -- at the default 0, every
+// eligible row trivially fits the current profile, so showing this on every
+// row all the time would just be noise. Green = fits your actual
+// height/weight/BMI today; amber = only fits because of your stated
+// willingness to gain/lose weight (ScoredStudy.via_swing).
+function FitBadge({ viaSwing }: { viaSwing: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-block rounded border px-1.5 py-0.5 font-mono text-[0.6rem] font-semibold uppercase tracking-wide",
+        viaSwing
+          ? "border-amber-600/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+          : "border-emerald-600/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+      )}
+    >
+      {viaSwing ? "within your ± swing" : "within your current BMI"}
+    </span>
+  );
+}
+
 // story: fix-study-deep-links -- a real user clicked a study link and landed on a network's
 // generic homepage instead of the specific study, because a network with no real per-study page
 // had its homepage/search URL stored as source_url and rendered exactly like every genuine
@@ -280,9 +301,14 @@ type ColumnRenderer = {
 // overlay (a RankedTable prop, not a module-level value) to decide whether
 // to show a community badge and/or supersede a base-dataset "confirm on
 // call"-style flag (story: community-corrections-consensus AC5) — everything
-// else is unchanged from before that story. Called once per render via
-// useMemo in RankedTable below.
-function buildColumnRender(overlay: CommunityCorrectionsFile | null): Record<ColumnId, ColumnRenderer> {
+// else is unchanged from before that story. `showFitBadge` (Profile.weight_swing_lb
+// > 0) similarly gates the "flags" renderer's FitBadge -- both are per-render
+// props, not module-level constants, hence the factory. Called once per
+// render via useMemo in RankedTable below.
+function buildColumnRender(
+  overlay: CommunityCorrectionsFile | null,
+  showFitBadge: boolean,
+): Record<ColumnId, ColumnRenderer> {
   return {
   rank: {
     align: "right",
@@ -426,10 +452,13 @@ function buildColumnRender(overlay: CommunityCorrectionsFile | null): Record<Col
       const bmiConfirmed = getFieldConsensus(overlay, s.id, "bmi_range")?.status === "community-confirmed";
       return (
         <div className="flex max-w-[220px] flex-wrap gap-1">
+          {showFitBadge && <FitBadge viaSwing={s.via_swing} />}
           {s.flags
             .filter((f) => !f.includes("payout timing"))
             .filter((f) => !(nightsConfirmed && f.includes("nights unknown")))
             .filter((f) => !(bmiConfirmed && f.includes("confirm BMI")))
+            // FitBadge above already communicates this -- avoid saying it twice.
+            .filter((f) => !f.includes("within your ± swing"))
             .map((f) => (
               <FlagBadge key={f}>{f}</FlagBadge>
             ))}
@@ -549,7 +578,10 @@ export function RankedTable({
   // Column render registry, rebuilt only when the overlay identity changes
   // (see buildColumnRender's own comment) — everything else about this
   // table's columns is unaffected by that story.
-  const COLUMN_RENDER = useMemo(() => buildColumnRender(communityOverlay), [communityOverlay]);
+  const COLUMN_RENDER = useMemo(
+    () => buildColumnRender(communityOverlay, profile.weight_swing_lb > 0),
+    [communityOverlay, profile.weight_swing_lb],
+  );
 
   // Column order/visibility — the one piece of this story's state that
   // persists across reload, via lib/column-config-store.ts (the same
@@ -727,7 +759,11 @@ export function RankedTable({
               {filteredEligible.map((s, i) => (
                 <TableRow
                   key={s.id}
-                  className={cn(!tableSort && i < 3 && "bg-emerald-500/[0.06] hover:bg-emerald-500/10")}
+                  className={cn(
+                    s.via_swing
+                      ? "bg-amber-500/[0.06] hover:bg-amber-500/10"
+                      : !tableSort && i < 3 && "bg-emerald-500/[0.06] hover:bg-emerald-500/10",
+                  )}
                 >
                   {visibleColumns.map((col) => {
                     const align = COLUMN_RENDER[col.id].align;
