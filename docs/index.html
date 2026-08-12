@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Medical Study Tracker — rank paid clinical trials by what you actually keep</title>
+<meta name="description" content="A free, open-source, 100% anonymous tool that ranks paid Phase-1/healthy-volunteer clinical trials by net cash kept, cash velocity, and downtime — not the headline pay figure." />
+<meta property="og:title" content="Medical Study Tracker" />
+<meta property="og:description" content="Ranks paid clinical-trial studies by what you actually keep — not the 'up to $' headline. No accounts, no backend, 100% anonymous." />
+<meta property="og:image" content="https://mdostal.github.io/medical-study-tracker/screenshot.png" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%A9%BA</text></svg>" />
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-subtle: #f8f8f7;
+    --fg: #1a1a19;
+    --fg-muted: #68675f;
+    --border: #e4e3de;
+    --accent: #1a1a19;
+    --accent-fg: #ffffff;
+    --amber-bg: #fef7e8;
+    --amber-border: #e8c477;
+    --amber-fg: #8a5a08;
+    --green: #1c6e3f;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; }
+
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  header.site {
+    border-bottom: 1px solid var(--border);
+  }
+  header.site .wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+  .brand {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+  }
+  header.site nav {
+    display: flex;
+    gap: 20px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  header.site nav a {
+    text-decoration: none;
+    color: var(--fg-muted);
+  }
+  header.site nav a:hover { color: var(--fg); }
+
+  .hero {
+    padding: 72px 0 40px;
+  }
+  .hero h1 {
+    font-size: 2.6rem;
+    line-height: 1.12;
+    margin: 0 0 18px;
+    letter-spacing: -0.02em;
+  }
+  .hero p.lede {
+    font-size: 1.12rem;
+    color: var(--fg-muted);
+    max-width: 62ch;
+    margin: 0 0 28px;
+  }
+  .hero p.lede b { color: var(--fg); font-weight: 600; }
+
+  .cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 18px;
+    border-radius: 8px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid var(--border);
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--accent-fg);
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-secondary {
+    background: var(--bg);
+    color: var(--fg);
+  }
+  .btn-secondary:hover { background: var(--bg-subtle); }
+
+  .badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .pill {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    color: var(--fg-muted);
+    background: var(--bg-subtle);
+  }
+
+  .screenshot-frame {
+    margin-top: 44px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px -25px rgba(0,0,0,0.25);
+  }
+  .screenshot-frame img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  section { padding: 56px 0; }
+  section.alt { background: var(--bg-subtle); }
+  section h2 {
+    font-size: 1.5rem;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+  section p.section-lede {
+    color: var(--fg-muted);
+    max-width: 68ch;
+    margin: 0 0 32px;
+  }
+
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .metric-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    background: var(--bg);
+  }
+  .metric-card .k {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--fg-muted);
+    margin-bottom: 8px;
+  }
+  .metric-card .v {
+    font-size: 0.92rem;
+  }
+  .metric-card code {
+    font-family: var(--mono);
+    font-size: 0.82em;
+    background: var(--bg-subtle);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+  }
+  .feature {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .feature h3 {
+    font-size: 0.98rem;
+    margin: 0 0 8px;
+  }
+  .feature p {
+    font-size: 0.88rem;
+    color: var(--fg-muted);
+    margin: 0;
+  }
+
+  .stack-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .stack-row .pill { background: var(--bg); }
+
+  .disclaimer {
+    border: 1px solid var(--amber-border);
+    background: var(--amber-bg);
+    color: var(--amber-fg);
+    border-radius: 10px;
+    padding: 18px 20px;
+    font-size: 0.88rem;
+  }
+  .disclaimer b { display: block; margin-bottom: 4px; }
+
+  footer.site {
+    border-top: 1px solid var(--border);
+    padding: 32px 0 48px;
+    font-size: 0.8rem;
+    color: var(--fg-muted);
+  }
+  footer.site .wrap {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  footer.site a { text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+  footer.site a:hover { color: var(--fg); }
+
+  @media (max-width: 640px) {
+    .hero { padding: 48px 0 32px; }
+    .hero h1 { font-size: 2rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="#top">Medical Study Tracker</a>
+    <nav>
+      <a href="https://tools.mdostal.com/study-tracker">Live app</a>
+      <a href="https://github.com/mdostal/medical-study-tracker">GitHub</a>
+      <a href="https://tools.mdostal.com/study-tracker/disclaimer">Disclaimer</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <h1>Rank paid clinical trials by what you actually keep.</h1>
+    <p class="lede">
+      Paid Phase-1 / healthy-volunteer study listings sort by the headline "up to $" figure and hide
+      the eligibility gate until you've already wasted a screening trip. This tool ranks the
+      <b>same public listings</b> by net cash kept, cash velocity, and downtime — using your own BMI,
+      home base, and backup-care situation, not a generic average.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://tools.mdostal.com/study-tracker">Open the live tracker &rarr;</a>
+      <a class="btn btn-secondary" href="https://github.com/mdostal/medical-study-tracker">View source on GitHub</a>
+    </div>
+    <div class="badge-row">
+      <span class="pill">No accounts, no backend</span>
+      <span class="pill">100% anonymous · localStorage only</span>
+      <span class="pill">Open source</span>
+      <span class="pill">Not medical or financial advice</span>
+    </div>
+
+    <div class="screenshot-frame">
+      <img src="screenshot.png" alt="Medical Study Tracker ranked table, showing real paid clinical-trial studies sorted by net cash kept, cash velocity, and downtime rate" loading="lazy" />
+    </div>
+  </div>
+
+  <section class="alt">
+    <div class="wrap">
+      <h2>The headline number lies</h2>
+      <p class="section-lede">
+        A $30k study that pays out over 6 months is worse bridge cash than a $15k study that settles
+        in one month. A $22k study in a city with no childcare can net less than a $6.6k study a
+        friend lives 20 minutes from. The engine (<code>lib/scoring.ts</code>) does that math for
+        every listing, live, as you tune the inputs.
+      </p>
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="k">Net cash kept</div>
+          <div class="v">Gross &minus; travel &minus; backup care, computed from <b>your</b> home base and your own stated backup-care coverage — never a generic assumption.</div>
+        </div>
+        <div class="metric-card">
+          <div class="k">Cash velocity</div>
+          <div class="v">Net &divide; days-until-actually-paid — the number that actually answers "$30k in 6 months, or $15k in 1 month?"</div>
+        </div>
+        <div class="metric-card">
+          <div class="k">Downtime rate</div>
+          <div class="v">Net &divide; total days of life committed (confinement + follow-up tail) — what a day of your time is actually worth here.</div>
+        </div>
+        <div class="metric-card">
+          <div class="k">Eligibility gate</div>
+          <div class="v">BMI, age, sex, smoker status, special population — filters out what you can't actually get into, computed against <b>your</b> real profile, not an example.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>What's in it</h2>
+      <p class="section-lede">Built and iterated against real, live-pulled study data from ICON, PPD/Thermo, Fortrea, Altasciences, Celerion, and other CRO networks.</p>
+      <div class="feature-grid">
+        <div class="feature">
+          <h3>Editable profile, real eligibility</h3>
+          <p>Set your own BMI, weight, sex, age, and smoker status — the ranked list and the blocked list both re-filter instantly against your real numbers, not a hardcoded example.</p>
+        </div>
+        <div class="feature">
+          <h3>Application &amp; chase tracking</h3>
+          <p>A separate pipeline view for studies you've actually applied to: status, next action, tap-to-call, business-hours awareness, and a call-log that writes confirmed nights/payout/washout back into the ranking.</p>
+        </div>
+        <div class="feature">
+          <h3>Community corrections</h3>
+          <p>A levels.fyi-style crowdsourced correction layer — no manual review gate. Conflicting reports show as disputed and transparent; agreement locks in confidence over time.</p>
+        </div>
+        <div class="feature">
+          <h3>Stack suggester</h3>
+          <p>Give it a cash target and it suggests the lowest-downtime combination of your eligible studies that clears it, respecting a real washout gap between dosing windows.</p>
+        </div>
+        <div class="feature">
+          <h3>Shareable, never stored</h3>
+          <p>No sign-in, no server-side database. Your profile and settings live in your own browser's localStorage; a "share this view" link encodes your inputs into the URL itself.</p>
+        </div>
+        <div class="feature">
+          <h3>Network directory</h3>
+          <p>A directory of the CRO networks the seed data is pulled from, plus links out to community resources like JALR for broader discovery.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt">
+    <div class="wrap">
+      <h2>Stack</h2>
+      <div class="stack-row">
+        <span class="pill">Next.js 15 (App Router)</span>
+        <span class="pill">TypeScript</span>
+        <span class="pill">Tailwind CSS</span>
+        <span class="pill">shadcn/ui</span>
+        <span class="pill">Vitest</span>
+        <span class="pill">No backend</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="disclaimer">
+        <b>This is not medical advice, and it is not financial advice.</b>
+        It ranks and organizes publicly available information about paid clinical trials so it's
+        easier to compare — it doesn't evaluate whether a study is medically right for you, and it
+        doesn't guarantee any figure shown will match what you're actually paid. Full breakdown on
+        the <a href="https://tools.mdostal.com/study-tracker/disclaimer">live site's disclaimer page</a>.
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>Medical Study Tracker — open source</span>
+    <span>
+      <a href="https://tools.mdostal.com/study-tracker">Live app</a> &middot;
+      <a href="https://github.com/mdostal/medical-study-tracker">GitHub</a> &middot;
+      <a href="https://github.com/mdostal/medical-study-tracker/issues">Issues</a>
+    </span>
+  </div>
+</footer>
+
+</body>
+</html>
