@@ -18,7 +18,7 @@ import { DEFAULT_STATUS, type StudyStatus } from "../local-status-store";
 // table.tsx specifically so it's testable without rendering React (matching
 // this repo's existing convention: no jsdom/@testing-library dependency).
 
-const profile: Profile = { bmi: 24, weight_lb: 180, sex: "male", age: 32 };
+const profile: Profile = { bmi: 24, height_in: 70, weight_lb: 180, sex: "male", age: 32 };
 const friendMap: FriendMap = {
   hubs: {},
   backup_care_available: {},

@@ -18,7 +18,7 @@ import {
 } from "../types";
 
 const CUSTOM_STATE: PersistedState = {
-  profile: { ...DEFAULT_PROFILE, bmi: 29, weight_lb: 210, sex: "female", smoker: true },
+  profile: { ...DEFAULT_PROFILE, bmi: 30.1, weight_lb: 210, sex: "female", smoker: true },
   assumptions: {
     ...DEFAULT_ASSUMPTIONS,
     home_base: { city: "Omaha, NE", lat: 41.2565, lng: -95.9345 },
@@ -52,12 +52,12 @@ describe("share-link encode/decode round-trip", () => {
 
   it("keeps the encoded payload compact (well under any practical URL length limit)", () => {
     const encoded = encodeShareState(CUSTOM_STATE);
-    // Sanity bound, not a tight spec. Bumped from the original 400 by
-    // story: generalize-profile-inputs — home_base is now a {city, lat, lng}
-    // shape rather than a 2-value literal, which adds real bytes; still
-    // nowhere near a practical URL-length limit (browsers/servers
+    // Sanity bound, not a tight spec. Bumped from 400 -> 600 by
+    // story: generalize-profile-inputs (home_base as {city, lat, lng}), then
+    // 600 -> 700 by story: editable-profile (Profile gained height_in) --
+    // still nowhere near a practical URL-length limit (browsers/servers
     // comfortably handle several KB).
-    expect(encoded.length).toBeLessThan(600);
+    expect(encoded.length).toBeLessThan(700);
   });
 });
 

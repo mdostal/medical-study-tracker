@@ -26,7 +26,7 @@ const study: Study = {
   special_pop: null,
 };
 
-const profile: Profile = { bmi: 24, weight_lb: 180, sex: "male", age: 32 };
+const profile: Profile = { bmi: 24, height_in: 70, weight_lb: 180, sex: "male", age: 32 };
 
 // San Antonio, TX — a real hub with real coordinates. Used across the
 // generalize-profile-inputs tests below to prove drivable() computes an

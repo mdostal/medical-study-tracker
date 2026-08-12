@@ -390,8 +390,21 @@ export function createApplication(
   return sanitizeApplication({ channel }, studyId);
 }
 
+// Standard imperial BMI formula: 703 * lb / in^2, rounded to 1 decimal.
+// Nobody knows their own BMI off the top of their head -- height and weight
+// are the only two numbers a visitor should ever have to type; `bmi` itself
+// is always derived, never entered directly (components/profile-panel.tsx
+// has no BMI input at all). A non-positive height falls back to 0 rather
+// than NaN/Infinity so a corrupt/zero height can never poison eligibility
+// math -- lib/scoring.ts's bmi_min/bmi_max checks just correctly reject it.
+export function computeBmi(weightLb: number, heightIn: number): number {
+  if (!(heightIn > 0)) return 0;
+  return Math.round(((703 * weightLb) / (heightIn * heightIn)) * 10) / 10;
+}
+
 export interface Profile {
-  bmi: number;
+  bmi: number;             // derived -- see computeBmi; never set independently of height_in/weight_lb
+  height_in: number;       // total inches; the UI splits this into feet+inches for entry
   weight_lb: number;
   sex: "male" | "female";
   age?: number;            // if known, checked against a study's age_min/age_max range
@@ -405,8 +418,9 @@ export interface Profile {
 // app/page.tsx's "example profile" banner and PersistedState's default below
 // can never drift from each other.
 export const DEFAULT_PROFILE: Profile = {
-  bmi: 22,
+  height_in: 70, // 5'10"
   weight_lb: 170,
+  bmi: computeBmi(170, 70),
   sex: "male",
   age: 32,
   smoker: false,
@@ -607,15 +621,27 @@ function isSex(value: unknown): value is Profile["sex"] {
   return value === "male" || value === "female";
 }
 
-/** Same never-throw, field-by-field-fallback discipline as sanitizeAssumptions below. */
+/**
+ * Same never-throw, field-by-field-fallback discipline as sanitizeAssumptions
+ * below. `bmi` is deliberately recomputed from height_in/weight_lb here
+ * rather than trusted from the input -- height_in didn't exist before this
+ * story, so an old share link or old localStorage entry carries a `bmi` with
+ * no matching height; ignoring the stored bmi and always deriving it keeps
+ * the two fields from ever silently disagreeing, regardless of how stale or
+ * hand-edited the input is.
+ */
 function sanitizeProfile(input: unknown): Profile {
   const src = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
   const num = (v: unknown, fallback: number) =>
     typeof v === "number" && Number.isFinite(v) ? v : fallback;
 
+  const height_in = num(src.height_in, DEFAULT_PROFILE.height_in);
+  const weight_lb = num(src.weight_lb, DEFAULT_PROFILE.weight_lb);
+
   return {
-    bmi: num(src.bmi, DEFAULT_PROFILE.bmi),
-    weight_lb: num(src.weight_lb, DEFAULT_PROFILE.weight_lb),
+    height_in,
+    weight_lb,
+    bmi: computeBmi(weight_lb, height_in),
     sex: isSex(src.sex) ? src.sex : DEFAULT_PROFILE.sex,
     age: num(src.age, DEFAULT_PROFILE.age as number),
     smoker: typeof src.smoker === "boolean" ? src.smoker : DEFAULT_PROFILE.smoker,

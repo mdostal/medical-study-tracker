@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  computeBmi,
   DEFAULT_ASSUMPTIONS,
   DEFAULT_PROFILE,
   DEFAULT_SORT_KEY,
@@ -40,7 +41,7 @@ describe("sanitizePersistedState", () => {
 
   it("round-trips a fully valid state unchanged", () => {
     const valid = {
-      profile: { ...DEFAULT_PROFILE, bmi: 29, weight_lb: 210, sex: "female" as const, smoker: true },
+      profile: { ...DEFAULT_PROFILE, bmi: 30.1, weight_lb: 210, sex: "female" as const, smoker: true },
       assumptions: {
         ...DEFAULT_ASSUMPTIONS,
         home_base: { city: "Omaha, NE", lat: 41.2565, lng: -95.9345 },
@@ -60,12 +61,20 @@ describe("sanitizePersistedState", () => {
       expect(sanitizePersistedState({}).profile).toEqual(DEFAULT_PROFILE);
     });
 
-    it("keeps a valid profile as-is", () => {
+    it("keeps a valid height_in/weight_lb/sex/age/smoker/conditions as-is, deriving bmi from height+weight", () => {
       const result = sanitizePersistedState({
-        profile: { bmi: 31, weight_lb: 240, sex: "female", age: 45, smoker: true, conditions: ["high_cholesterol"] },
+        profile: {
+          height_in: 65,
+          weight_lb: 240,
+          sex: "female",
+          age: 45,
+          smoker: true,
+          conditions: ["high_cholesterol"],
+        },
       });
       expect(result.profile).toEqual({
-        bmi: 31,
+        bmi: computeBmi(240, 65),
+        height_in: 65,
         weight_lb: 240,
         sex: "female",
         age: 45,
@@ -74,12 +83,25 @@ describe("sanitizePersistedState", () => {
       });
     });
 
+    // bmi is never trusted from raw input -- always recomputed from
+    // height_in/weight_lb (see lib/types.ts's sanitizeProfile comment) --
+    // so a stale/hand-edited bmi in localStorage or a share link can never
+    // disagree with the height/weight that's actually stored alongside it.
+    it("ignores an incoming bmi field entirely -- always recomputes it from height_in/weight_lb", () => {
+      const result = sanitizePersistedState({
+        profile: { bmi: 999, height_in: 70, weight_lb: 170 },
+      });
+      expect(result.profile.bmi).toBe(computeBmi(170, 70));
+      expect(result.profile.bmi).not.toBe(999);
+    });
+
     it("defaults individual malformed profile fields without discarding the rest", () => {
       const result = sanitizePersistedState({
-        profile: { bmi: "not a number", weight_lb: 200, sex: "nonbinary", smoker: "yes" },
+        profile: { height_in: "not a number", weight_lb: 200, sex: "nonbinary", smoker: "yes" },
       });
-      expect(result.profile.bmi).toBe(DEFAULT_PROFILE.bmi);
+      expect(result.profile.height_in).toBe(DEFAULT_PROFILE.height_in);
       expect(result.profile.weight_lb).toBe(200);
+      expect(result.profile.bmi).toBe(computeBmi(200, DEFAULT_PROFILE.height_in));
       expect(result.profile.sex).toBe(DEFAULT_PROFILE.sex);
       expect(result.profile.smoker).toBe(DEFAULT_PROFILE.smoker);
     });

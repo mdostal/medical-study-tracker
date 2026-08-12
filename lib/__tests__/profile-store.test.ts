@@ -52,7 +52,7 @@ describe("profile-store (localStorage adapter)", () => {
 
   it("reload-persistence: save then load round-trips the exact state", () => {
     const state: PersistedState = {
-      profile: { ...DEFAULT_PROFILE, bmi: 29, weight_lb: 210 },
+      profile: { ...DEFAULT_PROFILE, bmi: 30.1, weight_lb: 210 },
       assumptions: {
         ...DEFAULT_ASSUMPTIONS,
         home_base: { city: "Omaha, NE", lat: 41.2565, lng: -95.9345 },

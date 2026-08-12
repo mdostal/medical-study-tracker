@@ -221,7 +221,7 @@ export default function Home() {
             )}
           >
             {isDefaultProfile(profile)
-              ? "Using the example profile (BMI 22, male, non-smoker) — edit yours below"
+              ? `Using the example profile (BMI ${profile.bmi}, ${profile.sex}, ${profile.smoker ? "smoker" : "non-smoker"}) — edit yours below`
               : `Your profile: BMI ${profile.bmi} · ${profile.sex} · ${profile.smoker ? "smoker" : "non-smoker"}`}
           </span>
           <span className="rounded-md border bg-muted px-2 py-1 font-mono text-[0.66rem] text-muted-foreground">

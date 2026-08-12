@@ -1,6 +1,6 @@
 "use client";
 
-import { DEFAULT_PROFILE, type Assumptions, type Profile } from "@/lib/types";
+import { computeBmi, DEFAULT_PROFILE, type Assumptions, type Profile } from "@/lib/types";
 import { findUsCity, US_CITIES } from "@/lib/us-cities";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 /** Field-by-field compare, not deep-equal on `conditions` (order-insensitive, matches app/page.tsx's badge logic). */
 export function isDefaultProfile(p: Profile): boolean {
   return (
-    p.bmi === DEFAULT_PROFILE.bmi &&
+    p.height_in === DEFAULT_PROFILE.height_in &&
     p.weight_lb === DEFAULT_PROFILE.weight_lb &&
     p.sex === DEFAULT_PROFILE.sex &&
     p.age === DEFAULT_PROFILE.age &&
@@ -97,6 +97,16 @@ export function ProfilePanel({
   const setProfile = <K extends keyof Profile>(key: K, value: Profile[K]) =>
     onProfileChange({ ...profile, [key]: value });
 
+  // Height and weight are the only two numbers that determine BMI (see
+  // lib/types.ts's computeBmi) -- there is no direct BMI input anywhere in
+  // this panel, so every height/weight edit recomputes and stores bmi in
+  // the same patch, keeping the three fields impossible to desync.
+  const setHeightWeight = (patch: { height_in?: number; weight_lb?: number }) => {
+    const height_in = patch.height_in ?? profile.height_in;
+    const weight_lb = patch.weight_lb ?? profile.weight_lb;
+    onProfileChange({ ...profile, height_in, weight_lb, bmi: computeBmi(weight_lb, height_in) });
+  };
+
   const set = <K extends keyof Assumptions>(key: K, value: Assumptions[K]) =>
     onChange({ ...assumptions, [key]: value });
 
@@ -152,16 +162,39 @@ export function ProfilePanel({
           </p>
         </div>
 
-        <Field label="BMI">
-          <Input
-            type="number"
-            step={0.5}
-            min={10}
-            max={80}
-            value={profile.bmi}
-            onChange={(e) => setProfile("bmi", Number(e.target.value) || 0)}
-            className="w-20 font-mono tabular-nums"
-          />
+        <Field label="Height">
+          <div className="flex items-center gap-1">
+            <Input
+              type="number"
+              step={1}
+              min={1}
+              max={8}
+              value={Math.floor(profile.height_in / 12)}
+              onChange={(e) => {
+                const feet = Number(e.target.value) || 0;
+                const inches = profile.height_in % 12;
+                setHeightWeight({ height_in: feet * 12 + inches });
+              }}
+              className="w-14 font-mono tabular-nums"
+              aria-label="Height (feet)"
+            />
+            <span className="text-xs text-muted-foreground">ft</span>
+            <Input
+              type="number"
+              step={1}
+              min={0}
+              max={11}
+              value={profile.height_in % 12}
+              onChange={(e) => {
+                const inches = Number(e.target.value) || 0;
+                const feet = Math.floor(profile.height_in / 12);
+                setHeightWeight({ height_in: feet * 12 + inches });
+              }}
+              className="w-14 font-mono tabular-nums"
+              aria-label="Height (inches)"
+            />
+            <span className="text-xs text-muted-foreground">in</span>
+          </div>
         </Field>
 
         <Field label="Weight (lb)">
@@ -170,11 +203,18 @@ export function ProfilePanel({
             step={1}
             min={50}
             value={profile.weight_lb}
-            onChange={(e) =>
-              setProfile("weight_lb", Number(e.target.value) || 0)
-            }
+            onChange={(e) => setHeightWeight({ weight_lb: Number(e.target.value) || 0 })}
             className="w-24 font-mono tabular-nums"
           />
+        </Field>
+
+        {/* BMI is always derived from height + weight (lib/types.ts's
+            computeBmi) -- nobody knows their own BMI off the top of their
+            head, so there is no input for it, only this read-only display. */}
+        <Field label="BMI (calculated)">
+          <div className="flex h-8 w-16 items-center rounded-lg border border-dashed border-input bg-muted/40 px-2 font-mono text-[0.72rem] tabular-nums text-muted-foreground">
+            {profile.bmi || "—"}
+          </div>
         </Field>
 
         <Field label="Sex">
