@@ -160,6 +160,36 @@ export default function AboutPage() {
           </a>{" "}
           if you want to say thanks.
         </p>
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
+          Also worth a look:{" "}
+          <a
+            href="https://tools.mdostal.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+          >
+            more open-source tools
+          </a>{" "}
+          &middot;{" "}
+          <a
+            href="https://life.mdostal.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+          >
+            life outside the terminal
+          </a>{" "}
+          &middot;{" "}
+          <a
+            href="https://ff.events"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+          >
+            what we&apos;re building at Firefly Events
+          </a>{" "}
+          — always up for a conversation if any of it&apos;s interesting to you.
+        </p>
       </section>
 
       <p className="pt-4 text-xs text-muted-foreground">

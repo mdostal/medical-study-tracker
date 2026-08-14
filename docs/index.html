@@ -180,6 +180,16 @@
     max-width: 68ch;
     margin: 0 0 32px;
   }
+  section p.section-lede a,
+  .disclaimer a {
+    text-decoration: underline;
+    text-decoration-color: var(--border);
+    text-underline-offset: 3px;
+  }
+  section p.section-lede a:hover,
+  .disclaimer a:hover {
+    color: var(--fg);
+  }
 
   .metric-grid {
     display: grid;
@@ -395,6 +405,12 @@
         <a class="btn btn-secondary" href="https://mdostal.com/contact">Hire me</a>
         <a class="btn btn-secondary" href="https://www.buymeacoffee.com/mdostal">Buy me a coffee &#9749;</a>
       </div>
+      <p class="section-lede" style="margin-top: 20px; margin-bottom: 0;">
+        Also worth a look: <a href="https://tools.mdostal.com">more open-source tools</a> &middot;
+        <a href="https://life.mdostal.com">life outside the terminal</a> &middot;
+        <a href="https://ff.events">what we're building at Firefly Events</a> — always up for a
+        conversation if any of it's interesting to you.
+      </p>
     </div>
   </section>
 
