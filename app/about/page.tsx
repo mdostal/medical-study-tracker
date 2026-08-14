@@ -139,56 +139,75 @@ export default function AboutPage() {
           Support this project
         </h2>
         <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
-          This is free, open source, and always will be. If it&apos;s useful to
-          you: keep using it, hire me for consulting/fractional-CTO work at{" "}
-          <a
-            href="https://mdostal.com/contact"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
-          >
-            mdostal.com/contact
-          </a>
-          , or just{" "}
-          <a
-            href="https://www.buymeacoffee.com/mdostal"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
-          >
-            buy me a coffee
-          </a>{" "}
-          if you want to say thanks.
+          Free and open source, always. A few ways to help — or just say hi:
         </p>
+        <ul className="max-w-[70ch] list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-muted-foreground">
+          <li>
+            <strong className="text-foreground">Use it, star it, file an issue.</strong> Honestly
+            the best support an open-source project can get.
+          </li>
+          <li>
+            <strong className="text-foreground">Hire me.</strong> I do fractional-CTO and
+            consulting work — fixing and scaling tech stacks. &rarr;{" "}
+            <a
+              href="https://mdostal.com/contact"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+            >
+              mdostal.com/contact
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://www.buymeacoffee.com/mdostal"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+            >
+              Buy me a coffee
+            </a>{" "}
+            if it saved you time.
+          </li>
+          <li>
+            <strong className="text-foreground">More tools like this</strong> &rarr;{" "}
+            <a
+              href="https://tools.mdostal.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+            >
+              tools.mdostal.com
+            </a>
+          </li>
+          <li>
+            <strong className="text-foreground">Life outside the terminal</strong> &rarr;{" "}
+            <a
+              href="https://life.mdostal.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+            >
+              life.mdostal.com
+            </a>
+          </li>
+          <li>
+            <strong className="text-foreground">
+              What we&apos;re building at Firefly Events
+            </strong>{" "}
+            — event discovery, 8,000+ events/day from 7+ sources &rarr;{" "}
+            <a
+              href="https://ff.events"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+            >
+              ff.events
+            </a>
+          </li>
+        </ul>
         <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
-          Also worth a look:{" "}
-          <a
-            href="https://tools.mdostal.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
-          >
-            more open-source tools
-          </a>{" "}
-          &middot;{" "}
-          <a
-            href="https://life.mdostal.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
-          >
-            life outside the terminal
-          </a>{" "}
-          &middot;{" "}
-          <a
-            href="https://ff.events"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
-          >
-            what we&apos;re building at Firefly Events
-          </a>{" "}
-          — always up for a conversation if any of it&apos;s interesting to you.
+          Always up for a conversation if any of it&apos;s useful to you.
         </p>
       </section>
 

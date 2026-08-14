@@ -77,11 +77,13 @@ the **payout schedule** (rarely published online). See `docs/DATA-SOURCES.md`.
 
 ## Support this project
 
-Free and open source, always. A few ways to help or just say hi:
+Free and open source, always. A few ways to help — or just say hi:
 
-- **Use it, star it, file an issue** — that's the best kind of support for an OSS project: [tools.mdostal.com/study-tracker](https://tools.mdostal.com/study-tracker)
-- **Hire me** — I do consulting / fractional-CTO work: [mdostal.com/contact](https://mdostal.com/contact)
-- **Buy me a coffee** if it saved you time: [buymeacoffee.com/mdostal](https://www.buymeacoffee.com/mdostal)
-- **More open-source tools** like this one: [tools.mdostal.com](https://tools.mdostal.com)
-- **Life outside the terminal**: [life.mdostal.com](https://life.mdostal.com)
-- **What we're building at work**: [ff.events](https://ff.events) (Firefly Events — event discovery, 8,000+ events/day pulled from 7+ sources). Always up for a conversation if any of it's interesting to you.
+- **Use it, star it, file an issue.** Honestly the best support an open-source project can get. → [this project](https://tools.mdostal.com/study-tracker)
+- **Hire me.** I do fractional-CTO and consulting work — fixing and scaling tech stacks. → [mdostal.com/contact](https://mdostal.com/contact)
+- **[Buy me a coffee](https://www.buymeacoffee.com/mdostal)** if it saved you time.
+- **More tools like this** → [tools.mdostal.com](https://tools.mdostal.com)
+- **Life outside the terminal** → [life.mdostal.com](https://life.mdostal.com)
+- **What we're building at Firefly Events** — event discovery, 8,000+ events/day from 7+ sources → [ff.events](https://ff.events)
+
+Always up for a conversation if any of it's useful to you.
