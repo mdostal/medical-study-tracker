@@ -74,3 +74,11 @@ returns a stale/partial list.** Pull via headless browser (Playwright) with a **
 param** (`?nocache=<ts>`) and extract the DOM. Individual study detail pages are usually current via
 normal fetch. `pay` is always "up to" — reconfirm on the screening call, which is also where you get
 the **payout schedule** (rarely published online). See `docs/DATA-SOURCES.md`.
+
+## Support this project
+
+This is free, open-source, and always will be. If it's useful to you:
+
+- **Use it** — that's the whole point: [tools.mdostal.com/study-tracker](https://tools.mdostal.com/study-tracker)
+- **Hire me** — I do consulting/fractional-CTO work: [mdostal.com/contact](https://mdostal.com/contact)
+- **Buy me a coffee** if you just want to say thanks: [buymeacoffee.com/mdostal](https://www.buymeacoffee.com/mdostal)
