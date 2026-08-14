@@ -134,6 +134,44 @@ export default function AboutPage() {
         </p>
       </section>
 
+      <section className="space-y-2">
+        <h2 className="text-base font-semibold tracking-tight">
+          Support this project
+        </h2>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          This tool is free, ad-free, and has no accounts. Using it is genuinely enough. If it
+          saved you real time,{" "}
+          <a
+            href="https://buymeacoffee.com/mdostal"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+          >
+            buy me a coffee
+          </a>
+          , or{" "}
+          <a
+            href="https://mdostal.com/contact"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+          >
+            hire me
+          </a>{" "}
+          for consulting or a fractional CTO engagement. A real network addition, correction, or
+          bug report as a{" "}
+          <a
+            href="https://github.com/mdostal/medical-study-tracker/pulls"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+          >
+            pull request
+          </a>{" "}
+          is the single most useful thing you can send.
+        </p>
+      </section>
+
       <p className="pt-4 text-xs text-muted-foreground">
         See also:{" "}
         <Link
