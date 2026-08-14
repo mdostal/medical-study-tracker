@@ -180,6 +180,16 @@
     max-width: 68ch;
     margin: 0 0 32px;
   }
+  section p.section-lede a,
+  .disclaimer a {
+    text-decoration: underline;
+    text-decoration-color: var(--border);
+    text-underline-offset: 3px;
+  }
+  section p.section-lede a:hover,
+  .disclaimer a:hover {
+    color: var(--fg);
+  }
 
   .metric-grid {
     display: grid;
@@ -386,6 +396,26 @@
 
   <section>
     <div class="wrap">
+      <h2>Support this project</h2>
+      <p class="section-lede">
+        Free and open source, always. If it's useful to you: use it, hire me for consulting/fractional-CTO work, or just buy a coffee if you want to say thanks.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://tools.mdostal.com/study-tracker">Use the tool &rarr;</a>
+        <a class="btn btn-secondary" href="https://mdostal.com/contact">Hire me</a>
+        <a class="btn btn-secondary" href="https://www.buymeacoffee.com/mdostal">Buy me a coffee &#9749;</a>
+      </div>
+      <p class="section-lede" style="margin-top: 20px; margin-bottom: 0;">
+        Also worth a look: <a href="https://tools.mdostal.com">more open-source tools</a> &middot;
+        <a href="https://life.mdostal.com">life outside the terminal</a> &middot;
+        <a href="https://ff.events">what we're building at Firefly Events</a> — always up for a
+        conversation if any of it's interesting to you.
+      </p>
+    </div>
+  </section>
+
+  <section class="alt">
+    <div class="wrap">
       <div class="disclaimer">
         <b>This is not medical advice, and it is not financial advice.</b>
         It ranks and organizes publicly available information about paid clinical trials so it's
@@ -404,14 +434,6 @@
       <a href="https://tools.mdostal.com/study-tracker">Live app</a> &middot;
       <a href="https://github.com/mdostal/medical-study-tracker">GitHub</a> &middot;
       <a href="https://github.com/mdostal/medical-study-tracker/issues">Issues</a>
-    </span>
-  </div>
-  <div class="wrap" style="margin-top:10px">
-    <span style="font-size:0.78rem">
-      Free, no accounts. Use it -- that's genuinely enough. Or
-      <a href="https://buymeacoffee.com/mdostal">buy me a coffee</a> &middot;
-      <a href="https://mdostal.com/contact">hire me</a> for consulting/fractional CTO work &middot;
-      <a href="https://github.com/mdostal/medical-study-tracker/pulls">send a real fix</a>.
     </span>
   </div>
 </footer>
