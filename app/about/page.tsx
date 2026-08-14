@@ -9,12 +9,12 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <main className="mx-auto max-w-[70ch] space-y-8 px-4 py-10 sm:px-6">
+    <main className="mx-auto max-w-[1100px] space-y-8 px-4 py-10 sm:px-6">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">
           What this tool actually does
         </h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           Most &ldquo;find a study&rdquo; sites sort by the headline &ldquo;up to
           $X&rdquo; figure and stop there. That number lies by omission — a
           $30,000 study that pays out over six months can be worse bridge cash
@@ -30,7 +30,7 @@ export default function AboutPage() {
         <h2 className="text-base font-semibold tracking-tight">
           The three headline numbers
         </h2>
-        <dl className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+        <dl className="max-w-[70ch] space-y-3 text-sm leading-relaxed text-muted-foreground">
           <div>
             <dt className="font-medium text-foreground">Net cash kept</dt>
             <dd>
@@ -68,7 +68,7 @@ export default function AboutPage() {
         <h2 className="text-base font-semibold tracking-tight">
           Two gates, kept separate on purpose
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           <strong className="text-foreground">Eligibility</strong> is a hard
           filter — BMI range, age, sex, smoker status, special populations
           (e.g. a study requiring BMI 27+). If you don&apos;t qualify, the study
@@ -87,7 +87,7 @@ export default function AboutPage() {
         <h2 className="text-base font-semibold tracking-tight">
           Dependent care, on your terms
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           A single visitor with no dependents pays nothing extra in this
           model — the cost is exactly $0, unconditionally, unless you turn on
           &ldquo;I have dependents needing care while I&apos;m away&rdquo; yourself.
@@ -101,7 +101,7 @@ export default function AboutPage() {
         <h2 className="text-base font-semibold tracking-tight">
           Data: automated, refreshed daily, community-checked
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           Study listings are pulled directly from each network&apos;s own site on
           a daily schedule — see{" "}
           <Link
@@ -124,13 +124,41 @@ export default function AboutPage() {
         <h2 className="text-base font-semibold tracking-tight">
           No accounts, nothing tracked server-side
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           Your Profile (BMI, home base, weights, dependent-care settings) and
           status pipeline live entirely in your own browser&apos;s local
           storage — there&apos;s no sign-in, no server-side record of who you are
           or what you looked at. Want to share a specific ranking with
           someone? A &ldquo;share this view&rdquo; link encodes your inputs
           directly in the URL.
+        </p>
+      </section>
+
+      <section className="space-y-2 rounded-xl border bg-card p-5">
+        <h2 className="text-base font-semibold tracking-tight">
+          Support this project
+        </h2>
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
+          This is free, open source, and always will be. If it&apos;s useful to
+          you: keep using it, hire me for consulting/fractional-CTO work at{" "}
+          <a
+            href="https://mdostal.com/contact"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+          >
+            mdostal.com/contact
+          </a>
+          , or just{" "}
+          <a
+            href="https://www.buymeacoffee.com/mdostal"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+          >
+            buy me a coffee
+          </a>{" "}
+          if you want to say thanks.
         </p>
       </section>
 

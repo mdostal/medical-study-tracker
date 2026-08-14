@@ -9,10 +9,10 @@ export const metadata: Metadata = {
 
 export default function DisclaimerPage() {
   return (
-    <main className="mx-auto max-w-[70ch] space-y-8 px-4 py-10 sm:px-6">
+    <main className="mx-auto max-w-[1100px] space-y-8 px-4 py-10 sm:px-6">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Disclaimer</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="max-w-[70ch] text-sm text-muted-foreground">
           The short version:{" "}
           <strong className="text-foreground">
             this is not medical advice, and it is not financial advice.
@@ -27,7 +27,7 @@ export default function DisclaimerPage() {
         <h2 className="text-base font-semibold tracking-tight">
           What this tool actually does
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           It pulls publicly available study listings from clinical-research
           network sites, organizes the eligibility, pay, timing, and logistics
           fields those sites already publish, and ranks the results by net cash
@@ -49,7 +49,7 @@ export default function DisclaimerPage() {
         <h2 className="text-base font-semibold tracking-tight">
           Not medical advice
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           Nothing on this site is a recommendation that you participate in any
           study, that a study is safe, or that you are medically eligible —
           eligibility criteria shown here (BMI ranges, age, special
@@ -65,7 +65,7 @@ export default function DisclaimerPage() {
         <h2 className="text-base font-semibold tracking-tight">
           Not financial advice
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           Pay figures are &ldquo;up to&rdquo; amounts as published by each
           network — actual payment depends on completing the full study
           protocol, and payout timing (when you actually receive the money) is
@@ -80,7 +80,7 @@ export default function DisclaimerPage() {
         <h2 className="text-base font-semibold tracking-tight">
           Not affiliated with any network or company listed
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           This tool is not affiliated with, sponsored by, or endorsed by ICON,
           PPD/Thermo Fisher, Fortrea, Celerion, Altasciences, Spaulding
           Clinical, Nucleus Network, Frontage, BioPharma Services, Worldwide
@@ -110,7 +110,7 @@ export default function DisclaimerPage() {
         <h2 className="text-base font-semibold tracking-tight">
           The harm-liability gap
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           Clinical trial sponsors are generally not required to cover
           long-term injury the way workers&apos; compensation or health
           insurance might — compensation for a study-related injury, if any,
@@ -124,7 +124,7 @@ export default function DisclaimerPage() {
         <h2 className="text-base font-semibold tracking-tight">
           Data accuracy
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           Study data is pulled automatically on a daily schedule and
           supplemented by community-submitted corrections (shown with a
           confidence level — confirmed, disputed, or unverified — never
@@ -140,7 +140,7 @@ export default function DisclaimerPage() {
         <h2 className="text-base font-semibold tracking-tight">
           Other places to look
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           This tool doesn&apos;t try to be the only resource — it&apos;s worth
           cross-referencing against{" "}
           <a

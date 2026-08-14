@@ -24,10 +24,10 @@ const NETWORKS = (networksData.networks ?? []) as NetworkEntry[];
 
 export default function ResourcesPage() {
   return (
-    <main className="mx-auto max-w-[70ch] space-y-8 px-4 py-10 sm:px-6">
+    <main className="mx-auto max-w-[1100px] space-y-8 px-4 py-10 sm:px-6">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Resources</h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           Where this tool&apos;s data actually comes from, the networks it pulls
           from, and other places worth checking directly — this tool doesn&apos;t
           try to be the only source.
@@ -38,7 +38,7 @@ export default function ResourcesPage() {
         <h2 className="text-base font-semibold tracking-tight">
           How the data pipeline works
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           A scheduled job re-pulls each network&apos;s own site daily (see{" "}
           <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]">
             .github/workflows/daily-study-refresh.yml
@@ -64,7 +64,7 @@ export default function ResourcesPage() {
         <h2 className="text-base font-semibold tracking-tight">
           The networks we pull from
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           Confirmed paid Phase-1 / healthy-volunteer networks currently
           tracked. Some have fully automated live scraping; others are
           confirmed-enrolling but phone-only or register-gated, in which case
@@ -102,7 +102,7 @@ export default function ResourcesPage() {
         <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Other places to check
         </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">
           Complementary resources — not competitors, and nothing from these is
           pulled automatically into this tool&apos;s ranking. Worth checking
           directly, especially for networks or details this tool doesn&apos;t

@@ -190,7 +190,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen space-y-6 p-6 pb-20 sm:p-10">
-      <header className="mx-auto max-w-[1500px] space-y-2">
+      <header className="mx-auto max-w-[1100px] space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">
           Medical Study Tracker
         </h1>
@@ -230,7 +230,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1500px] space-y-6">
+      <div className="mx-auto max-w-[1100px] space-y-6">
         <ProfilePanel
           profile={profile}
           onProfileChange={setProfile}
