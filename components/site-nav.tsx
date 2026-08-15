@@ -1,5 +1,11 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
+// Static import, not a string src="/icon-mark.png" -- next/image doesn't
+// reliably prepend next.config.ts's basePath for a plain string path (404s
+// under /study-tracker in practice), but a statically-imported public/
+// asset gets its final basePath-correct URL resolved at build time.
+import iconMark from "../public/icon-mark.png";
 
 /**
  * Sitewide top nav. Keeps the homepage itself focused purely on the ranked
@@ -12,8 +18,9 @@ export function SiteNav() {
     <nav className="mx-auto flex max-w-[1100px] items-center justify-between px-4 py-4 text-sm sm:px-6">
       <Link
         href="/"
-        className="font-mono text-xs font-semibold uppercase tracking-wide text-foreground"
+        className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wide text-foreground"
       >
+        <Image src={iconMark} alt="" width={20} height={20} className="rounded-[22%]" />
         Medical Study Tracker
       </Link>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[0.72rem] uppercase tracking-wide text-muted-foreground">

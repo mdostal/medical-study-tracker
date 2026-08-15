@@ -71,6 +71,9 @@
     padding-bottom: 18px;
   }
   .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     font-family: var(--mono);
     font-size: 0.78rem;
     font-weight: 600;
@@ -78,6 +81,7 @@
     letter-spacing: 0.04em;
     text-decoration: none;
   }
+  .brand img { width: 20px; height: 20px; border-radius: 22%; display: block; }
   header.site nav {
     display: flex;
     gap: 20px;
@@ -283,7 +287,10 @@
 
 <header class="site">
   <div class="wrap">
-    <a class="brand" href="#top">Medical Study Tracker</a>
+    <a class="brand" href="#top">
+      <img src="apple-touch-icon.png" alt="" width="20" height="20" />
+      Medical Study Tracker
+    </a>
     <nav>
       <a href="https://tools.mdostal.com/study-tracker">Live app</a>
       <a href="https://github.com/mdostal/medical-study-tracker">GitHub</a>
