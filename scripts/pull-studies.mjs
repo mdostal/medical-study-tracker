@@ -334,6 +334,50 @@ function dedupeById(studies) {
   return { deduped, droppedCount: studies.length - deduped.length };
 }
 
+// How long a study that's dropped off a network's live listing stays in
+// data/studies.seed.json as status:"closed" before being pruned for good. Long enough that
+// someone actively chasing it (lib/application-store.ts's applications map, joined to this file
+// by study id in app/chase/page.tsx) doesn't lose the study's city/pay/phone/source_url out from
+// under them the day it stops appearing on the network's own site; not so long the file grows
+// forever with years-old closed rows nobody's tracking anymore.
+const ARCHIVE_RETENTION_DAYS = 90;
+
+function daysSince(dateStr) {
+  if (!dateStr) return Infinity; // no archived_on on record (shouldn't happen) -- prune it
+  return (Date.now() - new Date(`${dateStr}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24);
+}
+
+/** Reconciles one network's fresh pull against its prior seed rows (story: archive-vanished-studies).
+ * `fresh` always wins for any id it contains -- that's this run's live, re-verified data. A prior
+ * id that's NOT in `fresh` means the network no longer lists that study (filled, closed,
+ * expired): rather than silently dropping it, mark it status:"closed" with archived_on set to
+ * today and carry it forward, so lib/scoring.ts's isEligible() excludes it from the ranked table
+ * (already gated on status==="closed") while app/chase/page.tsx can still join and render it for
+ * anyone with it in their own pipeline. A row already archived on a prior run stays as-is unless
+ * it's now past ARCHIVE_RETENTION_DAYS, in which case it's pruned for good. Pure function --
+ * no I/O, no Date.now() dependency beyond the injectable `todayISO` -- so this is unit-testable
+ * without a real clock or a browser. */
+export function reconcileNetwork(fresh, prior, todayISO = new Date().toISOString().slice(0, 10)) {
+  const freshIds = new Set(fresh.map((s) => s.id));
+  const carried = [];
+  let archivedCount = 0;
+  let prunedCount = 0;
+  for (const s of prior) {
+    if (freshIds.has(s.id)) continue; // superseded by this run's fresh row
+    if (s.status === "closed") {
+      if (daysSince(s.archived_on) > ARCHIVE_RETENTION_DAYS) {
+        prunedCount++;
+        continue;
+      }
+      carried.push(s);
+    } else {
+      carried.push({ ...s, status: "closed", archived_on: todayISO });
+      archivedCount++;
+    }
+  }
+  return { merged: [...fresh, ...carried], archivedCount, prunedCount };
+}
+
 // -------------------- ICON (confirmed selector per docs/DATA-SOURCES.md) --------------------
 // Method: navigate All-Clinical-Research-Studies?nocache=<ts>#sort=compensation-high, read each
 // .studies-card__inner card. Verified live 2026-08-08: 57 raw .studies-card__inner DOM matches
@@ -1736,7 +1780,7 @@ async function main() {
   const priorByNetwork = groupByNetwork(seed.studies);
 
   const browser = await chromium.launch();
-  const summary = { refreshed: {}, retained: {}, checked: {}, failed: {} };
+  const summary = { refreshed: {}, retained: {}, checked: {}, failed: {}, archived: {}, pruned: {} };
   const finalStudies = [];
 
   const pullerEntries = Object.entries(PULLERS).filter(
@@ -1757,9 +1801,17 @@ async function main() {
           `${network}: puller returned ${fresh.length} rows with ${droppedCount} duplicate id(s) — deduped to ${deduped.length} before writing.`
         );
       }
-      finalStudies.push(...deduped);
+      const prior = priorByNetwork.get(network) ?? [];
+      const { merged, archivedCount, prunedCount } = reconcileNetwork(deduped, prior);
+      finalStudies.push(...merged);
       summary.refreshed[network] = deduped.length;
-      log(`OK    ${network}: refreshed ${deduped.length} studies`);
+      if (archivedCount > 0) summary.archived[network] = archivedCount;
+      if (prunedCount > 0) summary.pruned[network] = prunedCount;
+      log(
+        `OK    ${network}: refreshed ${deduped.length} studies` +
+          (archivedCount ? `, archived ${archivedCount} no-longer-listed` : "") +
+          (prunedCount ? `, pruned ${prunedCount} past ${ARCHIVE_RETENTION_DAYS}d retention` : "")
+      );
     } catch (err) {
       const prior = priorByNetwork.get(network) ?? [];
       finalStudies.push(...prior);
@@ -1801,7 +1853,14 @@ async function main() {
     const md =
       `### Daily study refresh\n\n` +
       `| Network | Result |\n|---|---|\n` +
-      Object.entries(summary.refreshed).map(([n, c]) => `| ${n} | refreshed — ${c} studies |`).join("\n") +
+      Object.entries(summary.refreshed)
+        .map(([n, c]) => {
+          const bits = [`refreshed — ${c} studies`];
+          if (summary.archived[n]) bits.push(`archived ${summary.archived[n]} no-longer-listed`);
+          if (summary.pruned[n]) bits.push(`pruned ${summary.pruned[n]} past ${ARCHIVE_RETENTION_DAYS}d`);
+          return `| ${n} | ${bits.join(", ")} |`;
+        })
+        .join("\n") +
       (Object.keys(summary.refreshed).length ? "\n" : "") +
       Object.entries(summary.checked).map(([n]) => `| ${n} | portal checked, not automated — retained |`).join("\n") +
       (Object.keys(summary.checked).length ? "\n" : "") +

@@ -54,6 +54,23 @@ Daily (not hourly) was a deliberate choice — see that story's `risks` for the 
 network sites" reasoning; each run is one page load per automated network plus a lightweight
 reachability check for the rest, well under anything that would look like scraping abuse.
 
+**Archiving, not deleting (story: archive-vanished-studies):** for the ten fully-automated
+networks below, each run's fresh pull is diffed against that network's prior rows via
+`reconcileNetwork()` in `scripts/pull-studies.mjs`. A study still in the fresh pull just gets its
+data refreshed as normal. A study that's *dropped off* the fresh pull (filled, closed, expired —
+the network no longer lists it) is never silently deleted: it's kept in `data/studies.seed.json`
+with `status: "closed"` and `archived_on` set to that day's date. `lib/scoring.ts`'s `isEligible()`
+already excludes `status: "closed"` rows from the ranked table, so this doesn't clutter the
+main view — but the row is still there by `id` for `app/chase/page.tsx` to join against, so
+someone with that study in their own tracked pipeline (`lib/application-store.ts`, browser-local,
+never sent to a server) doesn't lose its city/pay/phone/source_url out from under them mid-chase.
+A closed row is pruned for good once it's more than `ARCHIVE_RETENTION_DAYS` (90) past its
+`archived_on` date — long enough for an active chase to notice and log the outcome, not so long
+the seed file grows forever with years-old closed studies. A network's pull *failing outright*
+(site down, selector broke) is a different case and does **not** trigger archiving — its prior
+rows are retained unchanged, since a broken pull tells you nothing about whether those studies
+are actually still open.
+
 `scripts/pull-studies.mjs` currently has a **confirmed, live-verified DOM extraction recipe for
 ten networks**: ICON, Fortrea, Spaulding Clinical, JBR/CenExel's healthy-volunteer listing,
 Altasciences (all 3 sites), Celerion, Frontage, Nucleus Network, PPD/Thermo Fisher (Trialmed), and

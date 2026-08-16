@@ -39,6 +39,12 @@ export interface Study {
   eligible?: boolean;      // precomputed in seed for clearly-blocked studies
   exclude_reason?: string;
   status?: string;         // enrolling | upcoming | closed | verify
+  // Set by scripts/pull-studies.mjs when a study drops off its network's live listing (status
+  // flips to "closed" the same run) -- the date it was archived, so the daily refresh knows when
+  // to eventually prune it (ARCHIVE_RETENTION_DAYS). Closed studies are excluded from the ranked
+  // table (lib/scoring.ts isEligible) but stay joinable by id so app/chase/page.tsx can still
+  // render one a visitor already has in their own pipeline.
+  archived_on?: string;
   // A real, resolving, per-STUDY detail page — the actual study's own page, not a search page or
   // a network homepage (docs/DATA-INTEGRITY.md Rule 1). Leave unset when no such page exists;
   // never fill it with a generic/listing URL "close enough" to stand in for one (story:

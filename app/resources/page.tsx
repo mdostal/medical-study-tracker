@@ -46,7 +46,17 @@ export default function ResourcesPage() {
           in the source repo), reading whatever fields that network actually
           publishes — pay, nights, BMI range, special populations. Nothing is
           invented for a field a network doesn&apos;t publish; it&apos;s flagged as
-          unconfirmed instead. On top of that, anyone can submit a correction
+          unconfirmed instead. A study that disappears from a network&apos;s own
+          listing (filled, closed, expired) isn&apos;t just deleted — it&apos;s marked
+          closed and drops out of the ranked table, but stays around for a few
+          months in case you already have it in your{" "}
+          <Link
+            href="/chase"
+            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+          >
+            chase pipeline
+          </Link>
+          . On top of that, anyone can submit a correction
           with no account required — those build confidence automatically as
           independent people agree on the same value, and show as openly
           disputed (not silently overwritten) when they conflict. See{" "}
