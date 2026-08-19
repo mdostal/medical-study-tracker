@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ScoredStudy } from "@/lib/types";
 import { suggestStack, DEFAULT_WASHOUT_DAYS, type StackSuggestion } from "@/lib/stack-suggester";
 import { fmtUSD } from "@/lib/format";
+import { isSafeHttpUrl } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,13 @@ function ScheduleView({ schedule }: { schedule: NonNullable<StackSuggestion["sch
                 {i + 1}
               </Badge>
               <a
-                href={leg.study.source_url ?? leg.study.apply_url ?? "#"}
+                href={
+                  isSafeHttpUrl(leg.study.source_url)
+                    ? leg.study.source_url
+                    : isSafeHttpUrl(leg.study.apply_url)
+                      ? leg.study.apply_url
+                      : "#"
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"

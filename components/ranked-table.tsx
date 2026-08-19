@@ -44,7 +44,7 @@ import {
   type TableFilters,
   type TableSort,
 } from "@/lib/table-sort-filter";
-import { cn } from "@/lib/utils";
+import { cn, isSafeHttpUrl } from "@/lib/utils";
 import type { Feasibility, Profile, SortKey } from "@/lib/types";
 
 // Canonical definition lives in lib/types.ts (shared with lib/profile-store.ts
@@ -139,7 +139,8 @@ function FitBadge({ viaSwing }: { viaSwing: boolean }) {
 // itself has one, a small, honestly-labeled "network info" pointer that is never presented as if
 // it opens this specific study.
 function studyLinkHref(s: ScoredStudy): string | undefined {
-  return s.source_url ?? s.apply_url;
+  const href = s.source_url ?? s.apply_url;
+  return isSafeHttpUrl(href) ? href : undefined;
 }
 
 function telHref(phone: string): string {
@@ -161,7 +162,7 @@ function CallToApplyBadge({ phone, networkUrl }: { phone?: string; networkUrl?: 
           {phone}
         </a>
       )}
-      {networkUrl && (
+      {isSafeHttpUrl(networkUrl) && (
         <a
           href={networkUrl}
           target="_blank"

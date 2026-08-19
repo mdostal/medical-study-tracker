@@ -334,6 +334,34 @@ function dedupeById(studies) {
   return { deduped, droppedCount: studies.length - deduped.length };
 }
 
+// Defense-in-depth (this file's own findings, adversarial release-readiness pass): every
+// source_url/apply_url/network_url below is built via `new URL(href, baseNetworkUrl)` against
+// whatever href a network's own site published in its DOM. That resolution only sanitizes
+// RELATIVE hrefs -- an absolute `javascript:`/`data:` href a compromised or buggy network site
+// serves round-trips straight through unchanged into data/studies.seed.json, a daily,
+// zero-human-review commit, and from there into a real, clickable <a href> on this site's own
+// origin (components/ranked-table.tsx's studyLinkHref -- which has its own render-time check,
+// but this is the write-time half of the same defense, not a substitute for it). Strips the
+// field rather than dropping the whole study, matching the existing honest "network_url + phone"
+// fallback this codebase already uses when no trustworthy per-study link exists.
+function isSafeHttpUrl(u) {
+  if (typeof u !== "string" || !u) return false;
+  try {
+    const parsed = new URL(u);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export function sanitizeStudyUrls(study) {
+  const s = { ...study };
+  if (s.source_url && !isSafeHttpUrl(s.source_url)) delete s.source_url;
+  if (s.apply_url && !isSafeHttpUrl(s.apply_url)) delete s.apply_url;
+  if (s.network_url && !isSafeHttpUrl(s.network_url)) delete s.network_url;
+  return s;
+}
+
 // How long a study that's dropped off a network's live listing stays in
 // data/studies.seed.json as status:"closed" before being pruned for good. Long enough that
 // someone actively chasing it (lib/application-store.ts's applications map, joined to this file
@@ -1795,10 +1823,22 @@ async function main() {
       }
       // Safety net regardless of each puller's own dedup logic: no network's output should ever
       // reach the written file with a repeated id (see dedupeById's doc comment above).
-      const { deduped, droppedCount } = dedupeById(fresh);
+      const { deduped: dedupedRaw, droppedCount } = dedupeById(fresh);
       if (droppedCount > 0) {
         warnAnnotation(
-          `${network}: puller returned ${fresh.length} rows with ${droppedCount} duplicate id(s) — deduped to ${deduped.length} before writing.`
+          `${network}: puller returned ${fresh.length} rows with ${droppedCount} duplicate id(s) — deduped to ${dedupedRaw.length} before writing.`
+        );
+      }
+      const unsafeUrlCount = dedupedRaw.filter(
+        (s) =>
+          (s.source_url && !isSafeHttpUrl(s.source_url)) ||
+          (s.apply_url && !isSafeHttpUrl(s.apply_url)) ||
+          (s.network_url && !isSafeHttpUrl(s.network_url))
+      ).length;
+      const deduped = dedupedRaw.map(sanitizeStudyUrls);
+      if (unsafeUrlCount > 0) {
+        warnAnnotation(
+          `${network}: stripped ${unsafeUrlCount} row(s) with a non-http/https URL field (source_url/apply_url/network_url) before writing.`
         );
       }
       const prior = priorByNetwork.get(network) ?? [];

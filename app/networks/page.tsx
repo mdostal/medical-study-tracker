@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn, isSafeHttpUrl } from "@/lib/utils";
 import networksData from "@/data/networks.json";
 
 // REQUIREMENTS.md must-have #7: national network directory, rendered
@@ -220,14 +220,18 @@ function DiscoveredNetworkCard({ network }: { network: DiscoveredNetwork }) {
       </p>
       <p className="text-[0.74rem] text-muted-foreground">
         Found via{" "}
-        <a
-          href={network.source_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
-        >
-          jalr.org listing
-        </a>{" "}
+        {isSafeHttpUrl(network.source_url) ? (
+          <a
+            href={network.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground"
+          >
+            jalr.org listing
+          </a>
+        ) : (
+          "jalr.org listing"
+        )}{" "}
         ({network.discovered}). No pay, eligibility, or study data exists for this entry yet —
         confirm directly before relying on it.
       </p>
