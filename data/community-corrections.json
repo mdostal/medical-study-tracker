@@ -1,5 +1,5 @@
 {
   "_comment": "GENERATED FILE -- do not hand-edit. Produced by scripts/aggregate-corrections.mjs from open+closed GitHub issues labeled 'data-correction' (see .github/workflows/aggregate-corrections.yml). Overlays data/studies.seed.json at render time via lib/community-overlay.ts -- never modifies that file. No owner-approval step: every status here is earned purely through independent agreement between issues (story: community-corrections-consensus).",
-  "generatedAt": "2026-09-02T21:02:25.089Z",
+  "generatedAt": "2026-09-03T04:22:06.044Z",
   "fields": {}
 }
